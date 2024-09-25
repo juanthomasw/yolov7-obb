@@ -8,9 +8,6 @@ import torch
 
 def gaussian_label_cpu(label, num_class, u=0, sig=4.0):
     """
-    转换成CSL Labels：
-        用高斯窗口函数根据角度θ的周期性赋予gt labels同样的周期性，使得损失函数在计算边界处时可以做到“差值很大但loss很小”；
-        并且使得其labels具有环形特征，能够反映各个θ之间的角度距离
     Args:
         label (float32):[1], theta class
         num_theta_class (int): [1], theta class num
