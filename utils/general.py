@@ -749,9 +749,6 @@ def non_max_suppression_obb(prediction, conf_thres=0.25, iou_thres=0.45, classes
 
         _, theta_pred = torch.max(x[:, 5:184], 1,  keepdim=True) # [n_conf_thres, 1] θ ∈ int[0, 179]
         theta_pred = (theta_pred - 90) / 180 * pi # [n_conf_thres, 1] θ ∈ [-pi/2, pi/2)
-        
-        # Box (center x, center y, width, height) to (x1, y1, x2, y2)
-        box = xywh2xyxy(x[:, :4])
 
         # Detections matrix nx6 (xyxy, conf, cls)
         if multi_label:
@@ -778,10 +775,15 @@ def non_max_suppression_obb(prediction, conf_thres=0.25, iou_thres=0.45, classes
 
         # Batched NMS
         c = x[:, 6:7] * (0 if agnostic else max_wh)  # classes
-        boxes, scores = x[:, :4] + c, x[:, 5]  # boxes (offset by class), scores
-        i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
+
+        rboxes = x[:, :5].clone() 
+        rboxes[:, :2] = rboxes[:, :2] + c # rboxes (offset by class)
+        scores = x[:, 5]  # scores
+
+        _, i = obb_nms(rboxes, scores, iou_thres)
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]
+        
         output[xi] = x[i]
         if (time.time() - t) > time_limit:
             print(f'WARNING: NMS time limit {time_limit}s exceeded')
