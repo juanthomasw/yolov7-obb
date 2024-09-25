@@ -747,7 +747,7 @@ def non_max_suppression_obb(prediction, conf_thres=0.25, iou_thres=0.45, classes
         else:
             x[:, 185:] *= x[:, 184:185]  # conf = obj_conf * cls_conf
 
-        _, theta_pred = torch.max(x[:, 5:184], 1,  keepdim=True) # [n_conf_thres, 1] θ ∈ int[0, 179]
+        _, theta_pred = torch.max(x[:, 4:184], 1,  keepdim=True) # [n_conf_thres, 1] θ ∈ int[0, 179]
         theta_pred = (theta_pred - 90) / 180 * pi # [n_conf_thres, 1] θ ∈ [-pi/2, pi/2)
 
         # Detections matrix nx6 (xyxy, conf, cls)
