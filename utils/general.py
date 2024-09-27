@@ -982,3 +982,57 @@ def increment_path(path, exist_ok=True, sep=''):
         i = [int(m.groups()[0]) for m in matches if m]  # indices
         n = max(i) + 1 if i else 2  # increment number
         return f"{path}{sep}{n}"  # update path
+
+def points2xywhtheta(P1, P2, P3, P4, bound):
+    # P1 = ChangeCoordrate2standrad(P1, bound)
+    # P2 = ChangeCoordrate2standrad(P2, bound)
+    # P3 = ChangeCoordrate2standrad(P3, bound)
+    # P4 = ChangeCoordrate2standrad(P4, bound)
+
+    R = np.array([[P1[0], P1[1]], [P2[0], P2[1]], [P3[0], P3[1]], [P4[0], P4[1]]])
+    R = np.array(R, dtype=np.float32)
+    minrect = cv2.minAreaRect(R)
+    x = minrect[0][0]
+    y = minrect[0][1]
+    if minrect[1][0] >= minrect[1][1]:
+        w = minrect[1][0]
+        h = minrect[1][1]
+        angle = 180 - minrect[2]
+    else:
+        w = minrect[1][1]
+        h = minrect[1][0]
+        angle = 180 - (90 + minrect[2])
+    if angle < -90:
+        angle += 180
+    elif angle >= 90:
+        angle -= 180
+
+    # if x < 2 or x > bound-2 or y < 2 or y > bound-2 or \
+    #         w < 2 or h < 2 or w > bound-2 or h > bound-2:
+    #     isflag = False
+    # else:
+    #     isflag = True
+
+    # return x, y, w, h, angle, isflag
+    return x, y, w, h, angle
+
+def rotation_boxes(boxes):  # boxes: [x y w h angle]
+    cx, cy, w, h, angle = boxes[0], boxes[1], boxes[2], boxes[3], boxes[4]
+
+    angle = angle / 180 * math.pi
+    blx = cx - w / 2  # x1
+    bly = cy - h / 2  # y1
+    brx = cx + w / 2  # x2
+    bry = cy + h / 2  # y2
+
+    X1 = (blx - cx) * math.cos(angle) - (cy - bly) * math.sin(angle) + cx
+    Y1 = -((blx - cx) * math.sin(angle) + (cy - bly) * math.cos(angle)) + cy
+    X2 = (brx - cx) * math.cos(angle) - (cy - bly) * math.sin(angle) + cx
+    Y2 = -((brx - cx) * math.sin(angle) + (cy - bly) * math.cos(angle)) + cy
+    X3 = (blx - cx) * math.cos(angle) - (cy - bry) * math.sin(angle) + cx
+    Y3 = -((blx - cx) * math.sin(angle) + (cy - bry) * math.cos(angle)) + cy
+    X4 = (brx - cx) * math.cos(angle) - (cy - bry) * math.sin(angle) + cx
+    Y4 = -((brx - cx) * math.sin(angle) + (cy - bry) * math.cos(angle)) + cy
+
+    # return (int(X1), int(Y1)), (int(X2), int(Y2)), (int(X3), int(Y3)), (int(X4), int(Y4))
+    return (X1, Y1), (X2, Y2), (X3, Y3), (X4, Y4)
