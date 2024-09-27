@@ -30,6 +30,7 @@ from torchvision.ops import roi_pool, roi_align, ps_roi_pool, ps_roi_align
 from utils.general import check_requirements, xyxy2xywh, xywh2xyxy, xywhn2xyxy, xyn2xy, segment2box, segments2boxes, \
     resample_segments, clean_str, points2xtwhtheta, rotation_boxes
 from utils.torch_utils import torch_distributed_zero_first
+from utils.rboxs_utils import gaussian_label_cpu
 
 # Parameters
 help_url = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
@@ -350,37 +351,6 @@ def img2label_paths(img_paths):
     sa, sb = os.sep + 'images' + os.sep, os.sep + 'labels' + os.sep  # /images/, /labels/ substrings
     return ['txt'.join(x.replace(sa, sb, 1).rsplit(x.split('.')[-1], 1)) for x in img_paths]
 
-
-def xywhtheta2points(z):
-    x, y, w, h, theta = z[0], z[1], z[2], z[3], z[4]
-    box = np.array([[x-w/2, y-h/2],
-                       [x+w/2, y-h/2],
-                       [x+w/2, y+h/2],
-                       [x-w/2, y+h/2]])
-
-    box_matrix = np.array(box) - np.repeat(np.array([[x, y]]), len(box), 0)
-    theta_rad = theta / 180. * np.pi
-
-    rota_matrix = np.array([[np.cos(theta_rad), -np.sin(theta_rad)],
-                            [np.sin(theta_rad), np.cos(theta_rad)]], np.float)
-
-    box = box_matrix.dot(rota_matrix) + np.repeat(np.array([[x, y]]), len(box), 0)
-    
-    left_point_x = np.min(box[:, 0])
-    right_point_x = np.max(box[:, 0])
-    top_point_y = np.min(box[:, 1])
-    bottom_point_y = np.max(box[:, 1])
-
-    left_point_y = box[:, 1][np.where(box[:, 0] == left_point_x)][0]
-    right_point_y = box[:, 1][np.where(box[:, 0] == right_point_x)][0]
-    top_point_x = box[:, 0][np.where(box[:, 1] == top_point_y)][0]
-    bottom_point_x = box[:, 0][np.where(box[:, 1] == bottom_point_y)][0]
-
-    vertices = np.array([[top_point_x, top_point_y], [left_point_x, left_point_y], [bottom_point_x, bottom_point_y],
-                         [right_point_x, right_point_y]])
-
-    return vertices
-
 class LoadImagesAndLabels(Dataset):  # for training/testing
     def __init__(self, path, img_size=640, batch_size=16, augment=False, hyp=None, rect=False, image_weights=False,
                  cache_images=False, single_cls=False, stride=32, pad=0.0, prefix=''):
@@ -608,7 +578,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         if self.augment:
             # Augment imagespace
             if not mosaic:
-                img, labels = random_perspective_obb(img, labels,
+                img, labels = random_perspective(img, labels,
                                                  degrees=hyp['degrees'],
                                                  translate=hyp['translate'],
                                                  scale=hyp['scale'],
@@ -639,9 +609,15 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 if nL:
                     labels[:, 1] = 1 - labels[:, 1]
 
-        labels_out = torch.zeros((nL, 6))
+        if nl:
+        # *[clsid poly] to *[clsid cx cy l s theta gaussian_θ_labels] θ∈[-pi/2, pi/2) non-normalized
+            csl_labels  = gaussian_label_cpu(label=angle, num_class=180, u=0, sig=radius)
+            labels_obb = np.concatenate((labels[:, :5], csl_labels), axis=1)
+            nl = len(labels_obb)  # update after filter
+        
+        labels_out = torch.zeros((nL, 186))
         if nL:
-            labels_out[:, 1:] = torch.from_numpy(labels)
+            labels_out[:, 1:] = torch.from_numpy(labels_obb)
 
         # Convert
         img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
