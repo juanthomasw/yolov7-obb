@@ -350,6 +350,36 @@ def img2label_paths(img_paths):
     return ['txt'.join(x.replace(sa, sb, 1).rsplit(x.split('.')[-1], 1)) for x in img_paths]
 
 
+def xywhtheta2points(z):
+    x, y, w, h, theta = z[0], z[1], z[2], z[3], z[4]
+    box = np.array([[x-w/2, y-h/2],
+                       [x+w/2, y-h/2],
+                       [x+w/2, y+h/2],
+                       [x-w/2, y+h/2]])
+
+    box_matrix = np.array(box) - np.repeat(np.array([[x, y]]), len(box), 0)
+    theta_rad = theta / 180. * np.pi
+
+    rota_matrix = np.array([[np.cos(theta_rad), -np.sin(theta_rad)],
+                            [np.sin(theta_rad), np.cos(theta_rad)]], np.float)
+
+    box = box_matrix.dot(rota_matrix) + np.repeat(np.array([[x, y]]), len(box), 0)
+    
+    left_point_x = np.min(box[:, 0])
+    right_point_x = np.max(box[:, 0])
+    top_point_y = np.min(box[:, 1])
+    bottom_point_y = np.max(box[:, 1])
+
+    left_point_y = box[:, 1][np.where(box[:, 0] == left_point_x)][0]
+    right_point_y = box[:, 1][np.where(box[:, 0] == right_point_x)][0]
+    top_point_x = box[:, 0][np.where(box[:, 1] == top_point_y)][0]
+    bottom_point_x = box[:, 0][np.where(box[:, 1] == bottom_point_y)][0]
+
+    vertices = np.array([[top_point_x, top_point_y], [left_point_x, left_point_y], [bottom_point_x, bottom_point_y],
+                         [right_point_x, right_point_y]])
+
+    return vertices
+
 class LoadImagesAndLabels(Dataset):  # for training/testing
     def __init__(self, path, img_size=640, batch_size=16, augment=False, hyp=None, rect=False, image_weights=False,
                  cache_images=False, single_cls=False, stride=32, pad=0.0, prefix=''):
@@ -493,16 +523,17 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                             l = np.concatenate((classes.reshape(-1, 1), segments2boxes(segments)), 1)  # (cls, xywh)
                         l = np.array(l, dtype=np.float32)
                     if len(l):
-                        assert l.shape[1] == 5, 'labels require 5 columns each'
-                        assert (l >= 0).all(), 'negative labels'
-                        assert (l[:, 1:] <= 1).all(), 'non-normalized or out of bounds coordinate labels'
+                        assert l.shape[1] == 6, 'labels require 6 columns each'
+                        assert (l[:, :5] >= 0).all(), 'negative labels'
+                        assert (l[:, 1:5] <= 1).all(), 'non-normalized or out of bounds coordinate labels'
+                        assert (l[:, 5] >= -90).all() and (l[:, 5] < 90).all(), 'angle values out of range (-90 to 90)'
                         assert np.unique(l, axis=0).shape[0] == l.shape[0], 'duplicate labels'
                     else:
                         ne += 1  # label empty
-                        l = np.zeros((0, 5), dtype=np.float32)
+                        l = np.zeros((0, 6), dtype=np.float32)
                 else:
                     nm += 1  # label missing
-                    l = np.zeros((0, 5), dtype=np.float32)
+                    l = np.zeros((0, 6), dtype=np.float32)
                 x[im_file] = [l, shape, segments]
             except Exception as e:
                 nc += 1
@@ -565,12 +596,12 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
             labels = self.labels[index].copy()
             if labels.size:  # normalized xywh to pixel xyxy format
-                labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
+                labels[:, 1:5] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
 
         if self.augment:
             # Augment imagespace
             if not mosaic:
-                img, labels = random_perspective(img, labels,
+                img, labels = random_perspective_obb(img, labels,
                                                  degrees=hyp['degrees'],
                                                  translate=hyp['translate'],
                                                  scale=hyp['scale'],
@@ -583,25 +614,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             # Augment colorspace
             augment_hsv(img, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
 
-            # Apply cutouts
-            # if random.random() < 0.9:
-            #     labels = cutout(img, labels)
-            
-            if random.random() < hyp['paste_in']:
-                sample_labels, sample_images, sample_masks = [], [], [] 
-                while len(sample_labels) < 30:
-                    sample_labels_, sample_images_, sample_masks_ = load_samples(self, random.randint(0, len(self.labels) - 1))
-                    sample_labels += sample_labels_
-                    sample_images += sample_images_
-                    sample_masks += sample_masks_
-                    #print(len(sample_labels))
-                    if len(sample_labels) == 0:
-                        break
-                labels = pastein(img, labels, sample_labels, sample_images, sample_masks)
-
         nL = len(labels)  # number of labels
         if nL:
-            labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])  # convert xyxy to xywh
             labels[:, [2, 4]] /= img.shape[0]  # normalized height 0-1
             labels[:, [1, 3]] /= img.shape[1]  # normalized width 0-1
 
@@ -1318,3 +1332,166 @@ def load_segmentations(self, index):
     #print(key)
     # /work/handsomejw66/coco17/
     return self.segs[key]
+
+def random_perspective_obb(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0, border=(0, 0)):
+    # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
+    # targets = [cls, xyxy]
+
+    height = img.shape[0] + border[0] * 2  # shape(h,w,c)
+    width = img.shape[1] + border[1] * 2
+
+    # Center
+    C = np.eye(3)
+    C[0, 2] = -img.shape[1] / 2  # x translation (pixels)
+    C[1, 2] = -img.shape[0] / 2  # y translation (pixels)
+
+    # Perspective
+    P = np.eye(3)
+    P[2, 0] = random.uniform(-perspective, perspective)  # x perspective (about y)
+    P[2, 1] = random.uniform(-perspective, perspective)  # y perspective (about x)
+
+    # Rotation and Scale
+    R = np.eye(3)
+    a = random.uniform(-degrees, degrees)
+    # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
+    s = random.uniform(1 - scale, 1 + scale)
+    # s = 2 ** random.uniform(-scale, scale)
+    R[:2] = cv2.getRotationMatrix2D(angle=a, center=(0, 0), scale=s)
+
+    # Shear
+    S = np.eye(3)
+    S[0, 1] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # x shear (deg)
+    S[1, 0] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # y shear (deg)
+
+    # Translation
+    T = np.eye(3)
+    T[0, 2] = random.uniform(0.5 - translate, 0.5 + translate) * width  # x translation (pixels)
+    T[1, 2] = random.uniform(0.5 - translate, 0.5 + translate) * height  # y translation (pixels)
+
+    # Combined rotation matrix
+    M = T @ S @ R @ P @ C  # order of operations (right to left) is IMPORTANT
+    if (border[0] != 0) or (border[1] != 0) or (M != np.eye(3)).any():  # image changed
+        if perspective:
+            img = cv2.warpPerspective(img, M, dsize=(width, height), borderValue=(114, 114, 114))
+        else:  # affine
+            img = cv2.warpAffine(img, M[:2], dsize=(width, height), borderValue=(114, 114, 114))
+
+    # Visualize
+    # import matplotlib.pyplot as plt
+    # ax = plt.subplots(1, 2, figsize=(12, 6))[1].ravel()
+    # ax[0].imshow(img[:, :, ::-1])  # base
+    # ax[1].imshow(img2[:, :, ::-1])  # warped
+
+    # Transform label coordinates
+    n = len(targets)  # cls x y w h angle
+    if n:
+        P4_labels = np.zeros((targets.shape[0], 8))
+        if len(targets):
+            for i in range(targets.shape[0]):
+                P1, P2, P3, P4 = rotation_boxes(targets[i, 1:])  # [x y w h angle]
+                P4_labels[i, 0], P4_labels[i, 1], P4_labels[i, 2], P4_labels[i, 3], \
+                P4_labels[i, 4], P4_labels[i, 5], P4_labels[i, 6], P4_labels[i, 7] = \
+                    P1[0], P1[1], P2[0], P2[1], P3[0], P3[1], P4[0], P4[1]
+
+        # warp points
+        xy = np.ones((n * 4, 3))
+
+        # xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
+        xy[:, :2] = P4_labels.reshape(n * 4, 2)  # P1, P2, P3, P4
+
+        xy = xy @ M.T  # transform
+        if perspective:
+            xy = (xy[:, :2] / xy[:, 2:3]).reshape(n, 8)  # rescale
+        else:  # affine
+            xy = xy[:, :2].reshape(n, 8)
+
+        # # create new boxes
+        # x = xy[:, [0, 2, 4, 6]]
+        # y = xy[:, [1, 3, 5, 7]]
+        # xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
+        # Label (n, [x, y, w, h, angle])
+        islabel = []
+        for n_i in range(n):
+            islabel.append(True)
+        re_label = np.zeros((n, 5), dtype=float)
+        Height = img.shape[1]
+        for i in range(n):
+            P1, P2, P3, P4 = (xy[i, 0], xy[i, 1]),  (xy[i, 2], xy[i, 3]), (xy[i, 4], xy[i, 5]), (xy[i, 6], xy[i, 7])
+            x, y, w, h, angle = P1P2P3P42xywhAngle(P1, P2, P3, P4, Height)  # P1 P2 P3 P4 to x y w h angle
+
+            w1, h1 = targets[i, 3], targets[i, 4]
+            w_thr, h_thr, area_thr, aspect_ratio_thr, eps = 800, 4, 0.7, 30, 1e-16
+            isflag = (w < w_thr) & (h > h_thr) & (w * h / (w1 * h1 + eps) > area_thr) & (w / h < (aspect_ratio_thr + eps)) & (x < Height) & (x > 0) & (y < Height) & (y > 0)
+
+            islabel[i] = isflag
+            re_label[i, 0], re_label[i, 1], re_label[i, 2], re_label[i, 3], re_label[i, 4] = x, y, w, h, int(180-angle)
+
+        # # clip boxes
+        # xy_copy = xy.copy()
+        # xy_copy[:, [0, 2]] = xy[:, [0, 2]].clip(0, width)
+        # xy_copy[:, [1, 3]] = xy[:, [1, 3]].clip(0, height)
+
+        # filter candidates
+        # i = box_candidates(box1=targets[:, 1:5].T * s, box2=xy_copy.T)
+        # targets = targets[i]
+        # targets[:, 1:5] = xy[i]
+
+        # update labels
+        targets[:, 1:6] = re_label
+        targets = targets[islabel]
+
+    return img, targets
+
+def points2xywhtheta(P1, P2, P3, P4, bound):
+    # P1 = ChangeCoordrate2standrad(P1, bound)
+    # P2 = ChangeCoordrate2standrad(P2, bound)
+    # P3 = ChangeCoordrate2standrad(P3, bound)
+    # P4 = ChangeCoordrate2standrad(P4, bound)
+
+    R = np.array([[P1[0], P1[1]], [P2[0], P2[1]], [P3[0], P3[1]], [P4[0], P4[1]]])
+    R = np.array(R, dtype=np.float32)
+    minrect = cv2.minAreaRect(R)
+    x = minrect[0][0]
+    y = minrect[0][1]
+    if minrect[1][0] >= minrect[1][1]:
+        w = minrect[1][0]
+        h = minrect[1][1]
+        angle = 180 - minrect[2]
+    else:
+        w = minrect[1][1]
+        h = minrect[1][0]
+        angle = 180 - (90 + minrect[2])
+    if angle < -90:
+        angle += 180
+    elif angle >= 90:
+        angle -= 180
+
+    # if x < 2 or x > bound-2 or y < 2 or y > bound-2 or \
+    #         w < 2 or h < 2 or w > bound-2 or h > bound-2:
+    #     isflag = False
+    # else:
+    #     isflag = True
+
+    # return x, y, w, h, angle, isflag
+    return x, y, w, h, angle
+
+def rotation_boxes(boxes):  # boxes: [x y w h angle]
+    cx, cy, w, h, angle = boxes[0], boxes[1], boxes[2], boxes[3], boxes[4]
+
+    angle = angle / 180 * math.pi
+    blx = cx - w / 2  # x1
+    bly = cy - h / 2  # y1
+    brx = cx + w / 2  # x2
+    bry = cy + h / 2  # y2
+
+    X1 = (blx - cx) * math.cos(angle) - (cy - bly) * math.sin(angle) + cx
+    Y1 = -((blx - cx) * math.sin(angle) + (cy - bly) * math.cos(angle)) + cy
+    X2 = (brx - cx) * math.cos(angle) - (cy - bly) * math.sin(angle) + cx
+    Y2 = -((brx - cx) * math.sin(angle) + (cy - bly) * math.cos(angle)) + cy
+    X3 = (blx - cx) * math.cos(angle) - (cy - bry) * math.sin(angle) + cx
+    Y3 = -((blx - cx) * math.sin(angle) + (cy - bry) * math.cos(angle)) + cy
+    X4 = (brx - cx) * math.cos(angle) - (cy - bry) * math.sin(angle) + cx
+    Y4 = -((brx - cx) * math.sin(angle) + (cy - bry) * math.cos(angle)) + cy
+
+    # return (int(X1), int(Y1)), (int(X2), int(Y2)), (int(X3), int(Y3)), (int(X4), int(Y4))
+    return (X1, Y1), (X2, Y2), (X3, Y3), (X4, Y4)
