@@ -508,7 +508,7 @@ class ComputeLoss:
     def build_targets(self, p, targets):
         # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
         na, nt = self.na, targets.shape[0]  # number of anchors, targets
-        tcls, ttheta, tbox, indices, anch = [], [], [], [], []
+        tcls, tbox, indices, anch = [], [], [], []
         ttheta = []
         #gain = torch.ones(7, device=targets.device).long()  # normalized to gridspace gain
         feature_wh = torch.ones(2, device=targets.device)  # feature_wh
