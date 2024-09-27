@@ -1424,7 +1424,7 @@ def random_perspective_obb(img, targets=(), degrees=10, translate=.1, scale=.1, 
         Height = img.shape[1]
         for i in range(n):
             P1, P2, P3, P4 = (xy[i, 0], xy[i, 1]),  (xy[i, 2], xy[i, 3]), (xy[i, 4], xy[i, 5]), (xy[i, 6], xy[i, 7])
-            x, y, w, h, angle = P1P2P3P42xywhAngle(P1, P2, P3, P4, Height)  # P1 P2 P3 P4 to x y w h angle
+            x, y, w, h, angle = points2xywhtheta(P1, P2, P3, P4, Height)  # P1 P2 P3 P4 to x y w h angle
 
             w1, h1 = targets[i, 3], targets[i, 4]
             w_thr, h_thr, area_thr, aspect_ratio_thr, eps = 800, 4, 0.7, 30, 1e-16
