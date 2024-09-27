@@ -1424,3 +1424,36 @@ def random_perspective_obb(img, targets=(), degrees=10, translate=.1, scale=.1, 
         targets = targets[islabel]
 
     return img, targets
+
+def points2xywhtheta(P1, P2, P3, P4, bound):
+    # P1 = ChangeCoordrate2standrad(P1, bound)
+    # P2 = ChangeCoordrate2standrad(P2, bound)
+    # P3 = ChangeCoordrate2standrad(P3, bound)
+    # P4 = ChangeCoordrate2standrad(P4, bound)
+
+    R = np.array([[P1[0], P1[1]], [P2[0], P2[1]], [P3[0], P3[1]], [P4[0], P4[1]]])
+    R = np.array(R, dtype=np.float32)
+    minrect = cv2.minAreaRect(R)
+    x = minrect[0][0]
+    y = minrect[0][1]
+    if minrect[1][0] >= minrect[1][1]:
+        w = minrect[1][0]
+        h = minrect[1][1]
+        angle = 180 - minrect[2]
+    else:
+        w = minrect[1][1]
+        h = minrect[1][0]
+        angle = 180 - (90 + minrect[2])
+    if angle < -90:
+        angle += 180
+    elif angle >= 90:
+        angle -= 180
+
+    # if x < 2 or x > bound-2 or y < 2 or y > bound-2 or \
+    #         w < 2 or h < 2 or w > bound-2 or h > bound-2:
+    #     isflag = False
+    # else:
+    #     isflag = True
+
+    # return x, y, w, h, angle, isflag
+    return x, y, w, h, angle
