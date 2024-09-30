@@ -17,6 +17,8 @@ from utils.metrics import ap_per_class, ConfusionMatrix
 from utils.plots import plot_images, output_to_target, plot_study_txt
 from utils.torch_utils import select_device, time_synchronized, TracedModel
 
+from utils.rboxs_utils import poly2hbb, rbox2poly
+
 
 def test(data,
          weights=None,
