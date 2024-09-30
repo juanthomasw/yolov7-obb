@@ -603,31 +603,42 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             augment_hsv(img, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
 
         nL = len(labels)  # number of labels
-        if nL:
-            labels[:, [2, 4]] /= img.shape[0]  # normalized height 0-1
-            labels[:, [1, 3]] /= img.shape[1]  # normalized width 0-1
+        # if nL:
+            # labels[:, [2, 4]] /= img.shape[0]  # normalized height 0-1
+            # labels[:, [1, 3]] /= img.shape[1]  # normalized width 0-1
 
         if self.augment:
             # flip up-down
             if random.random() < hyp['flipud']:
                 img = np.flipud(img)
                 if nL:
-                    labels[:, 2] = 1 - labels[:, 2]
+                    # labels[:, 2] = 1 - labels[:, 2]
+                    labels[:, 2::2] = img.shape[0] - labels[:, 2::2] - 1
 
             # flip left-right
             if random.random() < hyp['fliplr']:
                 img = np.fliplr(img)
                 if nL:
-                    labels[:, 1] = 1 - labels[:, 1]
+                    # labels[:, 1] = 1 - labels[:, 1]
+                    labels[:, 1::2] = img.shape[1] - labels[:, 1::2] - 1
 
         if nl:
         # *[clsid poly] to *[clsid cx cy l s theta gaussian_θ_labels] θ∈[-pi/2, pi/2) non-normalized
-            csl_labels  = gaussian_label_cpu(label=angle, num_class=180, u=0, sig=radius)
-            labels_obb = np.concatenate((labels[:, :5], csl_labels), axis=1)
+            rboxes, csl_labels  = poly2rbox(polys=labels[:, 1:], 
+                                            num_cls_thata=hyp['cls_theta'] if hyp else 180, 
+                                            radius=hyp['csl_radius'] if hyp else 6.0, 
+                                            use_pi=True, use_gaussian=True)
+            labels_obb = np.concatenate((labels[:, :1], rboxes, csl_labels), axis=1)
+            labels_mask = (rboxes[:, 0] >= 0) & (rboxes[:, 0] < img.shape[1]) \
+                        & (rboxes[:, 1] >= 0) & (rboxes[:, 0] < img.shape[0]) \
+                        & (rboxes[:, 2] > 5) | (rboxes[:, 3] > 5)
+            labels_obb = labels_obb[labels_mask]
             nl = len(labels_obb)  # update after filter
         
+        # labels_out = torch.zeros((nl, 6))
         labels_out = torch.zeros((nL, 186))
         if nL:
+            # labels_out[:, 1:] = torch.from_numpy(labels)
             labels_out[:, 1:] = torch.from_numpy(labels_obb)
 
         # Convert
