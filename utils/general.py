@@ -21,6 +21,7 @@ import yaml
 from utils.google_utils import gsutil_getsize
 from utils.metrics import fitness
 from utils.torch_utils import init_torch_seeds
+from utils.nms_rotated import obb_nms
 
 # Settings
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
@@ -748,9 +749,9 @@ def non_max_suppression_obb(prediction, conf_thres=0.25, iou_thres=0.45, classes
             x[:, 185:] *= x[:, 184:185]  # conf = obj_conf * cls_conf
 
         _, theta_pred = torch.max(x[:, 4:184], 1,  keepdim=True) # [n_conf_thres, 1] θ ∈ int[0, 179]
-        theta_pred = (theta_pred - 90) / 180 * pi # [n_conf_thres, 1] θ ∈ [-pi/2, pi/2)
+        theta_pred = (theta_pred - 90) / 180 * math.pi # [n_conf_thres, 1] θ ∈ [-pi/2, pi/2)
 
-        # Detections matrix nx6 (xyxy, conf, cls)
+        # Detections matrix nx7 (xywh, theta, conf, cls)
         if multi_label:
             i, j = (x[:, 185:] > conf_thres).nonzero(as_tuple=False).T
             x = torch.cat((box[i], theta_pred[i], x[i, j + 185, None], j[:, None].float()), 1)
