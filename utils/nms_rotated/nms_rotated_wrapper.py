@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from src import nms_rotated_ext
+from . import nms_rotated_ext
 
 def obb_nms(dets, scores, iou_thr, device_id=None):
     """
