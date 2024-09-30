@@ -11,8 +11,9 @@ from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, non_max_suppression_obb, apply_classifier, \
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
-from utils.plots import plot_one_box
+from utils.plots import plot_one_box, plot_one_box_obb
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
+from utils.rboxs_utils import poly2rbox, rbox2poly
 
 
 def detect(save_img=False):
@@ -93,11 +94,12 @@ def detect(save_img=False):
         t3 = time_synchronized()
 
         # Apply Classifier
-        if classify:
-            pred = apply_classifier(pred, modelc, img, im0s)
+        # if classify:
+            # pred = apply_classifier(pred, modelc, img, im0s)
 
         # Process detections
         for i, det in enumerate(pred):  # detections per image
+            pred_poly = rbox2poly(det[:, :5]) # (n, [x1 y1 x2 y2 x3 y3 x4 y4])
             if webcam:  # batch_size >= 1
                 p, s, im0, frame = path[i], '%g: ' % i, im0s[i].copy(), dataset.count
             else:
@@ -109,7 +111,13 @@ def detect(save_img=False):
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             if len(det):
                 # Rescale boxes from img_size to im0 size
-                det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                # det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                
+                # Rescale polys from img_size to im0 size
+                pred_poly = scale_polys(im.shape[2:], pred_poly, im0.shape)
+
+                pred_box = ploy2rbox(pred_poly)
+                det = torch.cat((pred_box, det[:, -2:]), dim=1) # (n, [x y w h angle conf cls])
 
                 # Print results
                 for c in det[:, -1].unique():
@@ -117,16 +125,17 @@ def detect(save_img=False):
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
                 # Write results
-                for *xyxy, conf, cls in reversed(det):
+                for *rboxes, conf, cls in reversed(det):
                     if save_txt:  # Write to file
-                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
+                        # xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+                        rboxes = rboxes.tolist()
+                        line = (cls, *rboxes, conf) if opt.save_conf else (cls, *rboxes)  # label format
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
                     if save_img or view_img:  # Add bbox to image
                         label = f'{names[int(cls)]} {conf:.2f}'
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
+                        plot_one_box_obb(rboxes, im0, label=label, color=colors[int(cls)], line_thickness=1)
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
