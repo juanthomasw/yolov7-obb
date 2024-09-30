@@ -30,7 +30,7 @@ from torchvision.ops import roi_pool, roi_align, ps_roi_pool, ps_roi_align
 from utils.general import check_requirements, xyxy2xywh, xywh2xyxy, xywhn2xyxy, xyn2xy, segment2box, segments2boxes, \
     resample_segments, clean_str, rotation_boxes
 from utils.torch_utils import torch_distributed_zero_first
-from utils.rboxs_utils import gaussian_label_cpu, rbox2poly
+from utils.rboxs_utils import gaussian_label_cpu, rbox2poly, poly_filter
 
 # Parameters
 help_url = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
@@ -568,13 +568,24 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             labels = []
             x = self.labels[index].copy()
 
-            if x.size > 0:
+            if x.size:
                 labels = x.copy()
                 labels[:, 1] = w * x[:, 1]
                 labels[:, 2] = h * x[:, 2]
                 labels[:, 3] = w * x[:, 3]
                 labels[:, 4] = h * x[:, 4]
                 
+                # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
+                
+                # Separate the class and the rest of the values
+                obboxes = labels[:, 1:]   # x, y, w, h, theta
+            
+                # Convert the rboxes to polygons (x1, y1, x2, y2, x3, y3, x4, y4)
+                polys = rbox2poly(obboxes)
+            
+                # Overwrite labels with the new format [class, x1, y1, x2, y2, x3, y3, x4, y4]
+                labels[:, 1:] = polys
+        
         if self.augment:
             # Augment imagespace
             if not mosaic:
@@ -1014,7 +1025,7 @@ def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scale
 def random_perspective(img, targets=(), segments=(), degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0,
                        border=(0, 0)):
     # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
-    # targets = [cls, xyxy]
+    # targets = [cls, xyxyxyxy]
 
     height = img.shape[0] + border[0] * 2  # shape(h,w,c)
     width = img.shape[1] + border[1] * 2
@@ -1033,7 +1044,7 @@ def random_perspective(img, targets=(), segments=(), degrees=10, translate=.1, s
     R = np.eye(3)
     a = random.uniform(-degrees, degrees)
     # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
-    s = random.uniform(1 - scale, 1.1 + scale)
+    s = random.uniform(1 - scale, 1 + scale)
     # s = 2 ** random.uniform(-scale, scale)
     R[:2] = cv2.getRotationMatrix2D(angle=a, center=(0, 0), scale=s)
 
@@ -1079,23 +1090,27 @@ def random_perspective(img, targets=(), segments=(), degrees=10, translate=.1, s
 
         else:  # warp boxes
             xy = np.ones((n * 4, 3))
-            xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
+            # xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
+            xy[:, :2] = targets[:, 1:].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
             xy = xy @ M.T  # transform
             xy = (xy[:, :2] / xy[:, 2:3] if perspective else xy[:, :2]).reshape(n, 8)  # perspective rescale or affine
 
-            # create new boxes
-            x = xy[:, [0, 2, 4, 6]]
-            y = xy[:, [1, 3, 5, 7]]
-            new = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
+            ##  create new boxes
+            # x = xy[:, [0, 2, 4, 6]]
+            # y = xy[:, [1, 3, 5, 7]]
+            # new = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
 
-            # clip
-            new[:, [0, 2]] = new[:, [0, 2]].clip(0, width)
-            new[:, [1, 3]] = new[:, [1, 3]].clip(0, height)
+            ## clip
+            # new[:, [0, 2]] = new[:, [0, 2]].clip(0, width)
+            # new[:, [1, 3]] = new[:, [1, 3]].clip(0, height)
 
         # filter candidates
-        i = box_candidates(box1=targets[:, 1:5].T * s, box2=new.T, area_thr=0.01 if use_segments else 0.10)
-        targets = targets[i]
-        targets[:, 1:5] = new[i]
+        # i = box_candidates(box1=targets[:, 1:5].T * s, box2=new.T, area_thr=0.01 if use_segments else 0.10)
+        # targets = targets[i]
+        # targets[:, 1:5] = new[i]
+        targets_mask = poly_filter(polys=xy, h=height, w=width)
+        targets[:, 1:] = xy
+        targets = targets[targets_mask]
 
     return img, targets
 
@@ -1315,145 +1330,3 @@ def load_segmentations(self, index):
     #print(key)
     # /work/handsomejw66/coco17/
     return self.segs[key]
-
-def random_perspective_obb(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0, border=(0, 0)):
-    # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
-    # targets = [cls, xyxy]
-
-    height = img.shape[0] + border[0] * 2  # shape(h,w,c)
-    width = img.shape[1] + border[1] * 2
-
-    # Center
-    C = np.eye(3)
-    C[0, 2] = -img.shape[1] / 2  # x translation (pixels)
-    C[1, 2] = -img.shape[0] / 2  # y translation (pixels)
-
-    # Perspective
-    P = np.eye(3)
-    P[2, 0] = random.uniform(-perspective, perspective)  # x perspective (about y)
-    P[2, 1] = random.uniform(-perspective, perspective)  # y perspective (about x)
-
-    # Rotation and Scale
-    R = np.eye(3)
-    a = random.uniform(-degrees, degrees)
-    # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
-    s = random.uniform(1 - scale, 1 + scale)
-    # s = 2 ** random.uniform(-scale, scale)
-    R[:2] = cv2.getRotationMatrix2D(angle=a, center=(0, 0), scale=s)
-
-    # Shear
-    S = np.eye(3)
-    S[0, 1] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # x shear (deg)
-    S[1, 0] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # y shear (deg)
-
-    # Translation
-    T = np.eye(3)
-    T[0, 2] = random.uniform(0.5 - translate, 0.5 + translate) * width  # x translation (pixels)
-    T[1, 2] = random.uniform(0.5 - translate, 0.5 + translate) * height  # y translation (pixels)
-
-    # Combined rotation matrix
-    M = T @ S @ R @ P @ C  # order of operations (right to left) is IMPORTANT
-    if (border[0] != 0) or (border[1] != 0) or (M != np.eye(3)).any():  # image changed
-        if perspective:
-            img = cv2.warpPerspective(img, M, dsize=(width, height), borderValue=(114, 114, 114))
-        else:  # affine
-            img = cv2.warpAffine(img, M[:2], dsize=(width, height), borderValue=(114, 114, 114))
-
-    # Visualize
-    # import matplotlib.pyplot as plt
-    # ax = plt.subplots(1, 2, figsize=(12, 6))[1].ravel()
-    # ax[0].imshow(img[:, :, ::-1])  # base
-    # ax[1].imshow(img2[:, :, ::-1])  # warped
-
-    # Transform label coordinates
-    n = len(targets)  # cls x y w h angle
-    if n:
-        P4_labels = np.zeros((targets.shape[0], 8))
-        if len(targets):
-            for i in range(targets.shape[0]):
-                P1, P2, P3, P4 = rotation_boxes(targets[i, 1:])  # [x y w h angle]
-                P4_labels[i, 0], P4_labels[i, 1], P4_labels[i, 2], P4_labels[i, 3], \
-                P4_labels[i, 4], P4_labels[i, 5], P4_labels[i, 6], P4_labels[i, 7] = \
-                    P1[0], P1[1], P2[0], P2[1], P3[0], P3[1], P4[0], P4[1]
-
-        # warp points
-        xy = np.ones((n * 4, 3))
-
-        # xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
-        xy[:, :2] = P4_labels.reshape(n * 4, 2)  # P1, P2, P3, P4
-
-        xy = xy @ M.T  # transform
-        if perspective:
-            xy = (xy[:, :2] / xy[:, 2:3]).reshape(n, 8)  # rescale
-        else:  # affine
-            xy = xy[:, :2].reshape(n, 8)
-
-        # # create new boxes
-        # x = xy[:, [0, 2, 4, 6]]
-        # y = xy[:, [1, 3, 5, 7]]
-        # xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
-        # Label (n, [x, y, w, h, angle])
-        islabel = []
-        for n_i in range(n):
-            islabel.append(True)
-        re_label = np.zeros((n, 5), dtype=float)
-        Height = img.shape[1]
-        for i in range(n):
-            P1, P2, P3, P4 = (xy[i, 0], xy[i, 1]),  (xy[i, 2], xy[i, 3]), (xy[i, 4], xy[i, 5]), (xy[i, 6], xy[i, 7])
-            x, y, w, h, angle = points2xywhtheta(P1, P2, P3, P4, Height)  # P1 P2 P3 P4 to x y w h angle
-
-            w1, h1 = targets[i, 3], targets[i, 4]
-            w_thr, h_thr, area_thr, aspect_ratio_thr, eps = 800, 4, 0.7, 30, 1e-16
-            isflag = (w < w_thr) & (h > h_thr) & (w * h / (w1 * h1 + eps) > area_thr) & (w / h < (aspect_ratio_thr + eps)) & (x < Height) & (x > 0) & (y < Height) & (y > 0)
-
-            islabel[i] = isflag
-            re_label[i, 0], re_label[i, 1], re_label[i, 2], re_label[i, 3], re_label[i, 4] = x, y, w, h, int(180-angle)
-
-        # # clip boxes
-        # xy_copy = xy.copy()
-        # xy_copy[:, [0, 2]] = xy[:, [0, 2]].clip(0, width)
-        # xy_copy[:, [1, 3]] = xy[:, [1, 3]].clip(0, height)
-
-        # filter candidates
-        # i = box_candidates(box1=targets[:, 1:5].T * s, box2=xy_copy.T)
-        # targets = targets[i]
-        # targets[:, 1:5] = xy[i]
-
-        # update labels
-        targets[:, 1:6] = re_label
-        targets = targets[islabel]
-
-    return img, targets
-
-def points2xywhtheta(P1, P2, P3, P4, bound):
-    # P1 = ChangeCoordrate2standrad(P1, bound)
-    # P2 = ChangeCoordrate2standrad(P2, bound)
-    # P3 = ChangeCoordrate2standrad(P3, bound)
-    # P4 = ChangeCoordrate2standrad(P4, bound)
-
-    R = np.array([[P1[0], P1[1]], [P2[0], P2[1]], [P3[0], P3[1]], [P4[0], P4[1]]])
-    R = np.array(R, dtype=np.float32)
-    minrect = cv2.minAreaRect(R)
-    x = minrect[0][0]
-    y = minrect[0][1]
-    if minrect[1][0] >= minrect[1][1]:
-        w = minrect[1][0]
-        h = minrect[1][1]
-        angle = 180 - minrect[2]
-    else:
-        w = minrect[1][1]
-        h = minrect[1][0]
-        angle = 180 - (90 + minrect[2])
-    if angle < -90:
-        angle += 180
-    elif angle >= 90:
-        angle -= 180
-
-    # if x < 2 or x > bound-2 or y < 2 or y > bound-2 or \
-    #         w < 2 or h < 2 or w > bound-2 or h > bound-2:
-    #     isflag = False
-    # else:
-    #     isflag = True
-
-    # return x, y, w, h, angle, isflag
-    return x, y, w, h, angle
