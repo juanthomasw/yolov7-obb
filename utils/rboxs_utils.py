@@ -2,7 +2,7 @@
 Oriented Bounding Boxes utils
 """
 import numpy as np
-pi = 3.141592
+import math
 import cv2
 import torch
 
@@ -22,12 +22,12 @@ def gaussian_label_cpu(label, num_class, u=0, sig=4.0):
     return np.concatenate([y_sig[index:], 
                            y_sig[:index]], axis=0)
 
-def regular_theta(theta, mode='180', start=-pi/2):
+def regular_theta(theta, mode='180', start=-math.pi/2):
     """
     limit theta ∈ [-pi/2, pi/2)
     """
     assert mode in ['360', '180']
-    cycle = 2 * pi if mode == '360' else pi
+    cycle = 2 * math.pi if mode == '360' else math.pi
 
     theta = theta - start
     theta = theta % cycle
@@ -57,14 +57,14 @@ def poly2rbox(polys, num_cls_thata=180, radius=6.0, use_pi=False, use_gaussian=F
         poly = np.float32(poly.reshape(4, 2))
         (x, y), (w, h), angle = cv2.minAreaRect(poly) # θ ∈ [0， 90]
         angle = -angle # θ ∈ [-90， 0]
-        theta = angle / 180 * pi # 转为pi制
+        theta = angle / 180 * math.pi # 转为pi制
 
         # trans opencv format to longedge format θ ∈ [-pi/2， pi/2]
         if w != max(w, h): 
             w, h = h, w
-            theta += pi/2
+            theta += math.pi/2
         theta = regular_theta(theta) # limit theta ∈ [-pi/2, pi/2)
-        angle = (theta * 180 / pi) + 90 # θ ∈ [0， 180)
+        angle = (theta * 180 / math.pi) + 90 # θ ∈ [0， 180)
 
         if not use_pi: # 采用angle弧度制 θ ∈ [0， 180)
             rboxes.append([x, y, w, h, angle])
