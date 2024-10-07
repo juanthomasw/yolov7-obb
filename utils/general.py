@@ -21,7 +21,7 @@ import yaml
 from utils.google_utils import gsutil_getsize
 from utils.metrics import fitness
 from utils.torch_utils import init_torch_seeds
-from utils.nms_rotated import rbox2poly, poly2hbb
+from utils.rbox_utils import rbox2poly, poly2hbb
 from utils.general import xywh2xyxy
 
 # Settings
