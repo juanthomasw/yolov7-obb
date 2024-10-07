@@ -84,8 +84,11 @@ def plot_one_box_obb(x, img, color=None, label=None, line_thickness=3):
     # Extract box parameters
     cx, cy, w, h, angle = x
 
+    # Adjust the angle (subtract 90 degrees to convert from 0-180 to -90 to 90)
+    adjusted_angle = angle - 90
+
     # Create a rotated rectangle using OpenCV
-    rect = ((cx, cy), (w, h), angle)  # (center (x,y), (width, height), angle of rotation)
+    rect = ((cx, cy), (w, h), adjusted_angle)  # (center (x,y), (width, height), adjusted angle)
     
     # Get box corners from the rotated rectangle
     box = cv2.boxPoints(rect)  # Get the four corners of the rectangle
