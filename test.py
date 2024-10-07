@@ -150,7 +150,7 @@ def test(data,
             pred_hbb = torch.cat((hbbox, pred_poly[:, -2:]), dim=1) # (n, [xyxy, conf, cls]) 
 
             predn_poly = pred_poly.clone() # predn (tensor): (n, [poly, conf, cls])
-            scale_polys(im[si].shape[1:], predn_poly[:, :8], shape, shapes[si][1])  # native-space pred
+            scale_polys(img[si].shape[1:], predn_poly[:, :8], shape, shapes[si][1])  # native-space pred
             hbboxn = xywh2xyxy(poly2hbb(predn_poly[:, :8])) # (n, [x1 y1 x2 y2])
             predn_hbb = torch.cat((hbboxn, predn_poly[:, -2:]), dim=1) # (n, [xyxy, conf, cls]) native-space pred
             
