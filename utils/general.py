@@ -986,3 +986,18 @@ def increment_path(path, exist_ok=True, sep=''):
         i = [int(m.groups()[0]) for m in matches if m]  # indices
         n = max(i) + 1 if i else 2  # increment number
         return f"{path}{sep}{n}"  # update path
+
+def scale_polys(img1_shape, polys, img0_shape, ratio_pad=None):
+    # ratio_pad: [(h_raw, w_raw), (hw_ratios, wh_paddings)]
+    # Rescale coords (xyxyxyxy) from img1_shape to img0_shape
+    if ratio_pad is None:  # calculate from img0_shape
+        gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = resized / raw
+        pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
+    else:
+        gain = ratio_pad[0][0] # h_ratios
+        pad = ratio_pad[1] # wh_paddings
+
+    polys[:, [0, 2, 4, 6]] -= pad[0]  # x padding
+    polys[:, [1, 3, 5, 7]] -= pad[1]  # y padding
+    polys[:, :8] /= gain # Rescale poly shape to img0_shape)
+    return polys
