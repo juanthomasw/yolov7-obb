@@ -1,5 +1,5 @@
-train: /content/train.txt  # 800 images
-val: /content/val.txt  # 200 images
+train: /content/OBB_dataset/train.txt  # 800 images
+val: /content/OBB_dataset/val.txt  # 200 images
 
 # number of classes
 nc: 1
