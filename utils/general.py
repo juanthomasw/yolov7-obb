@@ -21,8 +21,7 @@ import yaml
 from utils.google_utils import gsutil_getsize
 from utils.metrics import fitness
 from utils.torch_utils import init_torch_seeds
-from utils.rbox_utils import rbox2poly, poly2hbb
-from utils.general import xywh2xyxy
+from utils.rboxs_utils import rbox2poly, poly2hbb
 
 # Settings
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
