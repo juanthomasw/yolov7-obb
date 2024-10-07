@@ -515,7 +515,7 @@ class ComputeLoss:
         tcls, tbox, indices, anch = [], [], [], []
         ttheta = []
         #gain = torch.ones(7, device=targets.device).long()  # normalized to gridspace gain
-        feature_wh = torch.ones(2, device=targets.device)  # feature_wh
+        feature_wh = torch.ones(2, device=targets.device).long() # feature_wh
         
         ai = torch.arange(na, device=targets.device).float().view(na, 1).repeat(1, nt)  # same as .repeat_interleave(nt)
         targets = torch.cat((targets.repeat(na, 1, 1), ai[:, :, None]), 2)  # append anchor indices
