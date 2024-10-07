@@ -781,7 +781,10 @@ def non_max_suppression_obb(prediction, conf_thres=0.25, iou_thres=0.45, classes
         rboxes[:, :2] = rboxes[:, :2] + c # rboxes (offset by class)
         scores = x[:, 5]  # scores
 
-        _, i = obb_nms(rboxes, scores, iou_thres)
+        boxes = xywh2xyxy(poly2hbb(rbox2poly(rboxes))
+                          
+        i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
+        
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]
         
