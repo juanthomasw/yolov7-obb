@@ -584,8 +584,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 # Convert the rboxes to polygons (x1, y1, x2, y2, x3, y3, x4, y4)
                 polys = rbox2poly(obboxes)
             
-                # Overwrite labels with the new format [class, x1, y1, x2, y2, x3, y3, x4, y4]
-                labels[:, 1:] = polys
+                # Concatenate the class label with the polygon coordinates
+                labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
         
         if self.augment:
             # Augment imagespace
