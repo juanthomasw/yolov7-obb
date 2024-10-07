@@ -758,9 +758,25 @@ def load_mosaic(self, index):
         # Labels
         labels, segments = self.labels[index].copy(), self.segments[index].copy()
         if labels.size:
-            labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padw, padh)  # normalized xywh to pixel xyxy format
+            # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padw, padh)  # normalized xywh to pixel xyxy format
+            labels[:, 1] = w * x[:, 1]
+            labels[:, 2] = h * x[:, 2]
+            labels[:, 3] = w * x[:, 3]
+            labels[:, 4] = h * x[:, 4]
+            labels[:, 5] = (x[:, 5] - 90) * math.pi/180
+            # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
+            
+            # Separate the class and the rest of the values
+            obboxes = labels[:, 1:]   # x, y, w, h, theta
+            
+            # Convert the rboxes to polygons (x1, y1, x2, y2, x3, y3, x4, y4)
+            polys = rbox2poly(obboxes)
+            
+            # Concatenate the class label with the polygon coordinates
+            polylabels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
+            
             segments = [xyn2xy(x, w, h, padw, padh) for x in segments]
-        labels4.append(labels)
+        labels4.append(polylabels)
         segments4.extend(segments)
 
     # Concat/clip labels
@@ -769,10 +785,15 @@ def load_mosaic(self, index):
         np.clip(x, 0, 2 * s, out=x)  # clip when using random_perspective()
     # img4, labels4 = replicate(img4, labels4)  # replicate
 
+    h_filter = 2 * s
+    w_filter = 2 * s
+    labels_mask = poly_filter(polys=labels4[:, 1:].copy(), h=h_filter, w=w_filter)
+    labels4 = labels4[labels_mask]
+    
     # Augment
     #img4, labels4, segments4 = remove_background(img4, labels4, segments4)
     #sample_segments(img4, labels4, segments4, probability=self.hyp['copy_paste'])
-    img4, labels4, segments4 = copy_paste(img4, labels4, segments4, probability=self.hyp['copy_paste'])
+    # img4, labels4, segments4 = copy_paste(img4, labels4, segments4, probability=self.hyp['copy_paste'])
     img4, labels4 = random_perspective(img4, labels4, segments4,
                                        degrees=self.hyp['degrees'],
                                        translate=self.hyp['translate'],
@@ -822,7 +843,21 @@ def load_mosaic9(self, index):
         # Labels
         labels, segments = self.labels[index].copy(), self.segments[index].copy()
         if labels.size:
-            labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padx, pady)  # normalized xywh to pixel xyxy format
+            # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padw, padh)  # normalized xywh to pixel xyxy format
+            labels[:, 1] = w * x[:, 1]
+            labels[:, 2] = h * x[:, 2]
+            labels[:, 3] = w * x[:, 3]
+            labels[:, 4] = h * x[:, 4]
+            labels[:, 5] = (x[:, 5] - 90) * math.pi/180
+            
+            # Separate the class and the rest of the values
+            obboxes = labels[:, 1:]   # x, y, w, h, theta
+            
+            # Convert the rboxes to polygons (x1, y1, x2, y2, x3, y3, x4, y4)
+            polys = rbox2poly(obboxes)
+            
+            # Concatenate the class label with the polygon coordinates
+            polylabels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
             segments = [xyn2xy(x, w, h, padx, pady) for x in segments]
         labels9.append(labels)
         segments9.extend(segments)
@@ -837,18 +872,25 @@ def load_mosaic9(self, index):
 
     # Concat/clip labels
     labels9 = np.concatenate(labels9, 0)
-    labels9[:, [1, 3]] -= xc
-    labels9[:, [2, 4]] -= yc
+    # labels9[:, [1, 3]] -= xc
+    # labels9[:, [2, 4]] -= yc
+    labels9[:, [1, 3, 5, 7]] -= xc
+    labels9[:, [2, 4, 6, 8]] -= yc
+    
     c = np.array([xc, yc])  # centers
     segments9 = [x - c for x in segments9]
 
     for x in (labels9[:, 1:], *segments9):
         np.clip(x, 0, 2 * s, out=x)  # clip when using random_perspective()
+    h_filter = 2 * s
+    w_filter = 2 * s
+    labels_mask = poly_filter(polys=labels9[:, 1:].copy(), h=h_filter, w=w_filter)
+    labels9 = labels9[labels_mask]
     # img9, labels9 = replicate(img9, labels9)  # replicate
 
     # Augment
     #img9, labels9, segments9 = remove_background(img9, labels9, segments9)
-    img9, labels9, segments9 = copy_paste(img9, labels9, segments9, probability=self.hyp['copy_paste'])
+    # img9, labels9, segments9 = copy_paste(img9, labels9, segments9, probability=self.hyp['copy_paste'])
     img9, labels9 = random_perspective(img9, labels9, segments9,
                                        degrees=self.hyp['degrees'],
                                        translate=self.hyp['translate'],
