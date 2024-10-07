@@ -585,12 +585,12 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 polys = rbox2poly(obboxes)
             
                 # Concatenate the class label with the polygon coordinates
-                labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
+                polylabels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
         
         if self.augment:
             # Augment imagespace
             if not mosaic:
-                img, labels = random_perspective(img, labels,
+                img, labels = random_perspective(img, polylabels,
                                                  degrees=hyp['degrees'],
                                                  translate=hyp['translate'],
                                                  scale=hyp['scale'],
