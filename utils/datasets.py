@@ -623,7 +623,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                     # labels[:, 1] = 1 - labels[:, 1]
                     labels[:, 1::2] = img.shape[1] - labels[:, 1::2] - 1
 
-        if nl:
+        if nL:
         # *[clsid poly] to *[clsid cx cy l s theta gaussian_θ_labels] θ∈[-pi/2, pi/2) non-normalized
             rboxes, csl_labels  = poly2rbox(polys=labels[:, 1:], 
                                             num_cls_thata=hyp['cls_theta'] if hyp else 180, 
