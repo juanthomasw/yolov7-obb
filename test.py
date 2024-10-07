@@ -198,7 +198,7 @@ def test(data,
                 # scale_coords(img[si].shape[1:], tbox, shapes[si][0], shapes[si][1])  # native-space labels
                 tpoly = rbox2poly(labels[:, 1:6]) # target poly
                 tbox = xywh2xyxy(poly2hbb(tpoly)) # target  hbb boxes [xyxy]
-                scale_coords(im[si].shape[1:], tbox, shape, shapes[si][1])  # native-space labels
+                scale_coords(img[si].shape[1:], tbox, shapes[si][0], shapes[si][1])  # native-space labels
                 
                 if plots:
                     confusion_matrix.process_batch(predn_hbb, torch.cat((labels[:, 0:1], tbox), 1))
