@@ -1,0 +1,8 @@
+train: /content/train.txt  # 800 images
+val: /content/val.txt  # 200 images
+
+# number of classes
+nc: 1
+
+# class names
+names: [ 'LP_Indonesia' ]
