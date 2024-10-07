@@ -754,10 +754,10 @@ def non_max_suppression_obb(prediction, conf_thres=0.25, iou_thres=0.45, classes
         # Detections matrix nx7 (xywh, theta, conf, cls)
         if multi_label:
             i, j = (x[:, 185:] > conf_thres).nonzero(as_tuple=False).T
-            x = torch.cat((box[i], theta_pred[i], x[i, j + 185, None], j[:, None].float()), 1)
+            x = torch.cat((x[i, :4], theta_pred[i], x[i, j + 185, None], j[:, None].float()), 1)
         else:  # best class only
             conf, j = x[:, 185:].max(1, keepdim=True)
-            x = torch.cat((box, theta_pred, conf, j.float()), 1)[conf.view(-1) > conf_thres]
+            x = torch.cat((x[:,:4], theta_pred, conf, j.float()), 1)[conf.view(-1) > conf_thres]
 
         # Filter by class
         if classes is not None:
