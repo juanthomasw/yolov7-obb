@@ -759,11 +759,11 @@ def load_mosaic(self, index):
         labels, segments = self.labels[index].copy(), self.segments[index].copy()
         if labels.size:
             # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padw, padh)  # normalized xywh to pixel xyxy format
-            labels[:, 1] = w * x[:, 1]
-            labels[:, 2] = h * x[:, 2]
-            labels[:, 3] = w * x[:, 3]
-            labels[:, 4] = h * x[:, 4]
-            labels[:, 5] = (x[:, 5] - 90) * math.pi/180
+            labels[:, 1] = w * labels[:, 1]
+            labels[:, 2] = h * labels[:, 2]
+            labels[:, 3] = w * labels[:, 3]
+            labels[:, 4] = h * labels[:, 4]
+            labels[:, 5] = (labels[:, 5] - 90) * math.pi/180
             # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
             
             # Separate the class and the rest of the values
@@ -844,11 +844,11 @@ def load_mosaic9(self, index):
         labels, segments = self.labels[index].copy(), self.segments[index].copy()
         if labels.size:
             # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padw, padh)  # normalized xywh to pixel xyxy format
-            labels[:, 1] = w * x[:, 1]
-            labels[:, 2] = h * x[:, 2]
-            labels[:, 3] = w * x[:, 3]
-            labels[:, 4] = h * x[:, 4]
-            labels[:, 5] = (x[:, 5] - 90) * math.pi/180
+            labels[:, 1] = w * labels[:, 1]
+            labels[:, 2] = h * labels[:, 2]
+            labels[:, 3] = w * labels[:, 3]
+            labels[:, 4] = h * labels[:, 4]
+            labels[:, 5] = (labels[:, 5] - 90) * math.pi/180
             
             # Separate the class and the rest of the values
             obboxes = labels[:, 1:]   # x, y, w, h, theta
