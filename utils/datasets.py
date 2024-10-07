@@ -495,9 +495,9 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                         l = np.array(l, dtype=np.float32)
                     if len(l):
                         assert l.shape[1] == 6, 'labels require 6 columns each'
-                        assert (l[:, :5] >= 0).all(), 'negative labels'
+                        assert (l[:, :6] >= 0).all(), 'negative labels'
                         assert (l[:, 1:5] <= 1).all(), 'non-normalized or out of bounds coordinate labels'
-                        assert (l[:, 5] >= -90).all() and (l[:, 5] < 90).all(), 'angle values out of range (-90 to 90)'
+                        assert (l[:, 5] >= 90).all() and (l[:, 5] < 180).all(), 'angle values out of range (-90 to 90)'
                         assert np.unique(l, axis=0).shape[0] == l.shape[0], 'duplicate labels'
                     else:
                         ne += 1  # label empty
@@ -574,6 +574,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 labels[:, 2] = h * x[:, 2]
                 labels[:, 3] = w * x[:, 3]
                 labels[:, 4] = h * x[:, 4]
+                labels[:, 5] = (x[:, 5] - 90) * math.pi/180
                 
                 # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
                 
@@ -636,7 +637,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             nl = len(labels_obb)  # update after filter
         
         # labels_out = torch.zeros((nl, 6))
-        labels_out = torch.zeros((nL, 186))
+        labels_out = torch.zeros((nl, 186))
         if nL:
             # labels_out[:, 1:] = torch.from_numpy(labels)
             labels_out[:, 1:] = torch.from_numpy(labels_obb)
