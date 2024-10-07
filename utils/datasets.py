@@ -634,10 +634,10 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                         & (rboxes[:, 1] >= 0) & (rboxes[:, 0] < img.shape[0]) \
                         & (rboxes[:, 2] > 5) | (rboxes[:, 3] > 5)
             labels_obb = labels_obb[labels_mask]
-            nl = len(labels_obb)  # update after filter
+            nL = len(labels_obb)  # update after filter
         
         # labels_out = torch.zeros((nl, 6))
-        labels_out = torch.zeros((nl, 186))
+        labels_out = torch.zeros((nL, 186))
         if nL:
             # labels_out[:, 1:] = torch.from_numpy(labels)
             labels_out[:, 1:] = torch.from_numpy(labels_obb)
