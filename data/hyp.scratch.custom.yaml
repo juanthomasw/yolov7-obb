@@ -29,3 +29,8 @@ mixup: 0.0  # image mixup (probability)
 copy_paste: 0.0  # image copy paste (probability)
 paste_in: 0.0  # image copy paste (probability), use 0 for faster training
 loss_ota: 1 # use ComputeLossOTA, use 0 for faster training
+
+theta: 0.5
+theta_pw: 1.0
+cls_theta: 180
+csl_radius: 2.0
