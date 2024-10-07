@@ -441,6 +441,7 @@ class ComputeLoss:
             BCEtheta = FocalLoss(BCEtheta, g)
 
         det = model.module.model[-1] if is_parallel(model) else model.model[-1]  # Detect() module
+        self.stride = det.stride # tensor([8., 16., 32., ...])
         self.balance = {3: [4.0, 1.0, 0.4]}.get(det.nl, [4.0, 1.0, 0.25, 0.06, .02])  # P3-P7
         #self.balance = {3: [4.0, 1.0, 0.4]}.get(det.nl, [4.0, 1.0, 0.25, 0.1, .05])  # P3-P7
         #self.balance = {3: [4.0, 1.0, 0.4]}.get(det.nl, [4.0, 1.0, 0.5, 0.4, .1])  # P3-P7
