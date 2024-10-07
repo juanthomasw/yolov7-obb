@@ -859,7 +859,7 @@ def load_mosaic9(self, index):
             # Concatenate the class label with the polygon coordinates
             polylabels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
             segments = [xyn2xy(x, w, h, padx, pady) for x in segments]
-        labels9.append(labels)
+        labels9.append(polylabels)
         segments9.extend(segments)
 
         # Image
