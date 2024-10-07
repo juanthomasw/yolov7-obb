@@ -637,7 +637,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             nL = len(labels_obb)  # update after filter
         
         # labels_out = torch.zeros((nl, 6))
-        labels_out = torch.zeros((nL, 186))
+        labels_out = torch.zeros((nL, 187))
         if nL:
             # labels_out[:, 1:] = torch.from_numpy(labels)
             labels_out[:, 1:] = torch.from_numpy(labels_obb)
