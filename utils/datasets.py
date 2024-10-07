@@ -585,12 +585,12 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 polys = rbox2poly(obboxes)
             
                 # Concatenate the class label with the polygon coordinates
-                polylabels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
+                labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
         
         if self.augment:
             # Augment imagespace
             if not mosaic:
-                img, labels = random_perspective(img, polylabels,
+                img, labels = random_perspective(img, labels,
                                                  degrees=hyp['degrees'],
                                                  translate=hyp['translate'],
                                                  scale=hyp['scale'],
@@ -773,10 +773,10 @@ def load_mosaic(self, index):
             polys = rbox2poly(obboxes)
             
             # Concatenate the class label with the polygon coordinates
-            polylabels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
+            labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
             
             segments = [xyn2xy(x, w, h, padw, padh) for x in segments]
-        labels4.append(polylabels)
+        labels4.append(labels)
         segments4.extend(segments)
 
     # Concat/clip labels
@@ -857,9 +857,9 @@ def load_mosaic9(self, index):
             polys = rbox2poly(obboxes)
             
             # Concatenate the class label with the polygon coordinates
-            polylabels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
+            labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
             segments = [xyn2xy(x, w, h, padx, pady) for x in segments]
-        labels9.append(polylabels)
+        labels9.append(labels)
         segments9.extend(segments)
 
         # Image
