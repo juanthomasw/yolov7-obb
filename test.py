@@ -17,7 +17,7 @@ from utils.metrics import ap_per_class, ConfusionMatrix
 from utils.plots import plot_images, output_to_target, plot_study_txt
 from utils.torch_utils import select_device, time_synchronized, TracedModel
 
-from utils.rboxs_utils import poly2hbb, rbox2poly
+from utils.rboxs_utils import poly2hbb, rbox2poly, poly2rbox
 
 
 def test(data,
@@ -152,14 +152,21 @@ def test(data,
             predn_poly = pred_poly.clone() # predn (tensor): (n, [poly, conf, cls])
             scale_polys(img[si].shape[1:], predn_poly[:, :8], shapes[si][0], shapes[si][1])  # native-space pred
             hbboxn = xywh2xyxy(poly2hbb(predn_poly[:, :8])) # (n, [x1 y1 x2 y2])
-            predn_hbb = torch.cat((hbboxn, predn_poly[:, -2:]), dim=1) # (n, [xyxy, conf, cls]) native-space pred
+            predn_hbb = torch.cat((hbboxn, predn_poly[:, -2:]), dim=1) # (n, [xyxy, conf, cls])
+            
+            predn = poly2rbox(predn_poly[:, :8])
             
             # Append to text file
             if save_txt:
                 gn = torch.tensor(shapes[si][0])[[1, 0, 1, 0]]  # normalization gain whwh
-                for *xyxy, conf, cls in predn_hbb.tolist():
-                    xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                    line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
+                for *xywh, conf, cls in predn.tolist():
+                    # Normalize xywh using gn (normalization factor, assuming gn is defined)
+                    xywh = (torch.tensor(xywh).view(1, 4) / gn).view(-1).tolist()  # normalized xywh
+                    
+                    # Convert theta (in radians) to degrees and adjust to the range [0, 180]
+                    angle = (theta * 180 / math.pi) + 90
+                    
+                    line = (cls, *xywh, angle, conf) if save_conf else (cls, *xywh, angle)  # label format
                     with open(save_dir / 'labels' / (path.stem + '.txt'), 'a') as f:
                         f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
@@ -197,7 +204,7 @@ def test(data,
                 # tbox = xywh2xyxy(labels[:, 1:5])
                 # scale_coords(img[si].shape[1:], tbox, shapes[si][0], shapes[si][1])  # native-space labels
                 tpoly = rbox2poly(labels[:, 1:6]) # target poly
-                tbox = xywh2xyxy(poly2hbb(tpoly)) # target  hbb boxes [xyxy]
+                tbox = xywh2xyxy(poly2hbb(tpoly)) # target hbb boxes [xyxy]
                 scale_coords(img[si].shape[1:], tbox, shapes[si][0], shapes[si][1])  # native-space labels
                 
                 if plots:
