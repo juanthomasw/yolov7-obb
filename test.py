@@ -154,7 +154,7 @@ def test(data,
             hbboxn = xywh2xyxy(poly2hbb(predn_poly[:, :8])) # (n, [x1 y1 x2 y2])
             predn_hbb = torch.cat((hbboxn, predn_poly[:, -2:]), dim=1) # (n, [xyxy, conf, cls])
             
-            predn = poly2rbox(predn_poly[:, :8])
+            predn = poly2rbox(predn_poly[:, :8].cpu().detach().numpy())
             
             # Append to text file
             if save_txt:
