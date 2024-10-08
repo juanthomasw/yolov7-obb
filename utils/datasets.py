@@ -491,7 +491,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                         if any([len(x) > 8 for x in l]):  # is segment
                             classes = np.array([x[0] for x in l], dtype=np.float32)
                             segments = [np.array(x[1:], dtype=np.float32).reshape(-1, 2) for x in l]  # (cls, xy1...)
-                            l = np.concatenate((classes.reshape(-1, 1), segments2boxes(segments)), 1)  # (cls, xywh)
+                            l = np.concatenate((classes.reshape(-1, 1), poly2rbox(segments), 1)  # (cls, xywh, angle)
                         l = np.array(l, dtype=np.float32)
                     if len(l):
                         assert l.shape[1] == 6, 'labels require 6 columns each'
@@ -574,7 +574,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 labels[:, 2] = h * x[:, 2]
                 labels[:, 3] = w * x[:, 3]
                 labels[:, 4] = h * x[:, 4]
-                labels[:, 5] = (x[:, 5] - 90) * math.pi/180
+                labels[:, 5] = (x[:, 5] - 90) * math.pi/180 #theta
                 
                 # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
                 
