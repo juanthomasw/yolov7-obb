@@ -733,8 +733,8 @@ def non_max_suppression_obb(prediction, conf_thres=0.25, iou_thres=0.45, classes
             l = labels[xi]
             v = torch.zeros((len(l), nc + 5), device=x.device)
             v[:, :4] = l[:, 1:5]  # box
-            v[:, 184] = 1.0  # conf
-            v[range(len(l)), l[:, 0].long() + 185] = 1.0  # cls
+            v[:, 5] = 1.0  # conf
+            v[range(len(l)), l[:, 0].long() + 6] = 1.0  # cls
             x = torch.cat((x, v), 0)
 
         # If none remain process next image
