@@ -17,7 +17,7 @@ import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
-from PIL import Image, ExifTags, ImageOps
+from PIL import Image, ExifTags
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
