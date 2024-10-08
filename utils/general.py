@@ -778,16 +778,24 @@ def non_max_suppression_obb(prediction, conf_thres=0.25, iou_thres=0.45, classes
         c = x[:, 6:7] * (0 if agnostic else max_wh)  # classes
 
         rboxes = x[:, :5].clone() 
-        rboxes[:, :2] = rboxes[:, :2] + c # rboxes (offset by class)
-        scores = x[:, 5]  # scores
-
         boxes = xywh2xyxy(poly2hbb(rbox2poly(rboxes)))
-                          
+
+        boxes = boxes + c # boxes (offset by class)
+        scores = x[:, 5]  # scores
+        
         i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
         
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]
         
+        # if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
+            # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
+            #iou = box_iou(boxes[i], boxes) > iou_thres  # iou matrix
+            #weights = iou * scores[None]  # box weights
+            #x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
+            #if redundant:
+                #i = i[iou.sum(1) > 1]  # require redundancy
+
         output[xi] = x[i]
         if (time.time() - t) > time_limit:
             print(f'WARNING: NMS time limit {time_limit}s exceeded')
