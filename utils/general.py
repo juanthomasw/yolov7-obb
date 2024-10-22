@@ -388,6 +388,54 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False, eps=
         return iou  # IoU
 
 
+def bbox_iou_obb(box1, box2, theta1, theta2, GIoU=False, DIoU=False, CIoU=False, eps=1e-7):
+    # Combine (concatenate) box1 with theta1 (single value)
+    box1 = torch.cat((box1, theta1.unsqueeze(0)), dim=0)  # Shape: [5], box1 is now [x1, y1, x2, y2, theta1]
+
+    # Ensure box2 is shaped [n, 4] and concatenate theta2
+    box2 = torch.cat((box2, theta2.unsqueeze(1)), dim=1)  # Shape: [n, 5], box2 is now [x1, y1, x2, y2, theta2]
+
+    # Convert rotated bounding boxes (rbox) to polygons (poly) and then to horizontal bounding boxes (hbb)
+    hbbox1 = poly2hbb(rbox2poly(box1))
+    hbbox2 = poly2hbb(rbox2poly(box2))
+
+    # Get the coordinates of bounding boxes
+    b1_x1, b1_y1, b1_x2, b1_y2 = hbbox1[0], hbbox1[1], hbbox1[2], hbbox1[3]
+
+    # Transpose hbbox2 to have shape [5, n]
+    hbbox2 = hbbox2.T  # Shape: [5, n]
+    b2_x1, b2_y1, b2_x2, b2_y2 = hbbox2[0], hbbox2[1], hbbox2[2], hbbox2[3]
+
+    # Intersection area
+    inter = (torch.min(b1_x2, b2_x2) - torch.max(b1_x1, b2_x1)).clamp(0) * \
+            (torch.min(b1_y2, b2_y2) - torch.max(b1_y1, b2_y1)).clamp(0)
+
+    # Union Area
+    w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1 + eps
+    w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1 + eps
+    union = w1 * h1 + w2 * h2 - inter + eps
+
+    iou = inter / union
+
+    if GIoU or DIoU or CIoU:
+        cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)  # convex (smallest enclosing box) width
+        ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)  # convex height
+        if CIoU or DIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
+            c2 = cw ** 2 + ch ** 2 + eps  # convex diagonal squared
+            rho2 = ((b2_x1 + b2_x2 - b1_x1 - b1_x2) ** 2 +
+                    (b2_y1 + b2_y2 - b1_y1 - b1_y2) ** 2) / 4  # center distance squared
+            if DIoU:
+                return iou - rho2 / c2  # DIoU
+            elif CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
+                v = (4 / math.pi ** 2) * torch.pow(torch.atan(w2 / (h2 + eps)) - torch.atan(w1 / (h1 + eps)), 2)
+                with torch.no_grad():
+                    alpha = v / (v - iou + (1 + eps))
+                return iou - (rho2 / c2 + v * alpha)  # CIoU
+        else:  # GIoU https://arxiv.org/pdf/1902.09630.pdf
+            c_area = cw * ch + eps  # convex area
+            return iou - (c_area - union) / c_area  # GIoU
+    else:
+        return iou  # IoU
 
 
 def bbox_alpha_iou(box1, box2, x1y1x2y2=False, GIoU=False, DIoU=False, CIoU=False, alpha=2, eps=1e-9):
