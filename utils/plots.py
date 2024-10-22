@@ -67,44 +67,29 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=3):
         cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
 
-def plot_one_box_obb(x, img, color=None, label=None, line_thickness=3):
-    """
-    Plots one oriented bounding box on the image.
-    Args:
-        x (list or array): [cx, cy, w, h, angle], where (cx, cy) is the center of the box,
-                           w is the width, h is the height, and angle is in degrees.
-        img (numpy array): The image to plot the box on.
-        color (tuple or list): The color of the bounding box. Random if not provided.
-        label (str): The label to show on the box (optional).
-        line_thickness (int): Thickness of the bounding box line.
-    """
+def plot_one_box_obb(poly, img, color=None, label=None, line_thickness=3):
+    # Plots one polygon on image img
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]  # Random color if not provided
 
-    # Extract box parameters
-    cx, cy, w, h, angle = x
+    # Convert polygon points to a format suitable for cv2.polylines
+    points = poly.reshape((-1, 1, 2)).astype(int)  # Reshape to (n, 1, 2) for polylines
 
-    # Adjust the angle (subtract 90 degrees to convert from 0-180 to -90 to 90)
-    adjusted_angle = angle - 90
-
-    # Create a rotated rectangle using OpenCV
-    rect = ((cx, cy), (w, h), adjusted_angle)  # (center (x,y), (width, height), adjusted angle)
-    
-    # Get box corners from the rotated rectangle
-    box = cv2.boxPoints(rect)  # Get the four corners of the rectangle
-    box = np.int0(box)  # Convert to integer
-
-    # Draw the rotated bounding box as a polygon
-    cv2.drawContours(img, [box], 0, color, tl, lineType=cv2.LINE_AA)
+    # Draw the polygon
+    cv2.polylines(img, [points], isClosed=True, color=color, thickness=tl)
 
     # If a label is provided, draw it above the bounding box
     if label:
+         # Calculate the position for the label
+        c1 = (int(poly[0]), int(poly[1]))  # Use the first vertex for the label position
         tf = max(tl - 1, 1)  # font thickness
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
-        c1 = (int(cx), int(cy))  # Center of the bounding box
-        c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
+        label_position = (c1[0], c1[1] - 2)
+
+        # Create a filled rectangle for the label background
+        c2 = (c1[0] + t_size[0], c1[1] - t_size[1] - 3)
         cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
-        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+        cv2.putText(img, label, label_position, 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
 
 
 def plot_one_box_PIL(box, img, color=None, label=None, line_thickness=None):
