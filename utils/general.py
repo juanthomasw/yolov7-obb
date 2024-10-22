@@ -389,21 +389,19 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False, eps=
 
 
 def bbox_iou_obb(box1, box2, theta1, theta2, GIoU=False, DIoU=False, CIoU=False, eps=1e-7):
-    # Combine (concatenate) box1 with theta1 (single value)
-    box1 = torch.cat((box1, theta1.unsqueeze(0)), dim=0)  # Shape: [5], box1 is now [x1, y1, x2, y2, theta1]
-
-    # Ensure box2 is shaped [n, 4] and concatenate theta2
-    box2 = torch.cat((box2, theta2.unsqueeze(1)), dim=1)  # Shape: [n, 5], box2 is now [x1, y1, x2, y2, theta2]
+    box1 = torch.cat((box1, theta1), dim=-1)  # Shape: [n, 5], box1 is now [x, y, w, h, theta]
+    box2 = torch.cat((box2, theta2), dim=-1)  # Shape: [n, 5], box2 is now [x, y, w, h, theta]
 
     # Convert rotated bounding boxes (rbox) to polygons (poly) and then to horizontal bounding boxes (hbb)
     hbbox1 = poly2hbb(rbox2poly(box1))
     hbbox2 = poly2hbb(rbox2poly(box2))
 
+    # Transpose hbbox to have shape [5, n]
+    hbbox1 = hbbox1.T  # Shape: [5, n]
+    hbbox2 = hbbox2.T  # Shape: [5, n]
+    
     # Get the coordinates of bounding boxes
     b1_x1, b1_y1, b1_x2, b1_y2 = hbbox1[0], hbbox1[1], hbbox1[2], hbbox1[3]
-
-    # Transpose hbbox2 to have shape [5, n]
-    hbbox2 = hbbox2.T  # Shape: [5, n]
     b2_x1, b2_y1, b2_x2, b2_y2 = hbbox2[0], hbbox2[1], hbbox2[2], hbbox2[3]
 
     # Intersection area
