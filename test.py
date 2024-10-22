@@ -162,8 +162,9 @@ def test(data,
             # Append to text file
             if save_txt:
                 gn = torch.tensor(shapes[si][0])[[1, 0, 1, 0]]  # normalization gain whwh
-                for *xywh, angle, conf, cls in predn.tolist():
-                    line = (cls, *xywh, angle, conf) if save_conf else (cls, *xywh, angle)  # label format
+                for *rboxes, conf, cls in predn.tolist():
+                    rboxes = rboxes.tolist()
+                    line = (cls, *rboxes, conf) if save_conf else (cls, *rboxes)  # label format
                     with open(save_dir / 'labels' / (path.stem + '.txt'), 'a') as f:
                         f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
