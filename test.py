@@ -125,6 +125,8 @@ def test(data,
             lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
             t = time_synchronized()
             out = non_max_suppression_obb(out, conf_thres=conf_thres, iou_thres=iou_thres, labels=lb, multi_label=True)
+            # [ xywh theta conf cls ]
+            
             t1 += time_synchronized() - t
 
         # Statistics per image
@@ -154,18 +156,13 @@ def test(data,
             hbboxn = xywh2xyxy(poly2hbb(predn_poly[:, :8])) # (n, [x1 y1 x2 y2])
             predn_hbb = torch.cat((hbboxn, predn_poly[:, -2:]), dim=1) # (n, [xyxy, conf, cls])
             
-            predn = poly2rbox(predn_poly[:, :8].cpu().detach().numpy())
+            rboxn = poly2rbox(predn_poly[:, :8].cpu().detach().numpy())
+            predn = torch.cat((rboxn, predn_poly[:, -2:]), dim=1) # (n, [xywh, angle, conf, cls]
             
             # Append to text file
             if save_txt:
                 gn = torch.tensor(shapes[si][0])[[1, 0, 1, 0]]  # normalization gain whwh
-                for *xywh, conf, cls in predn.tolist():
-                    # Normalize xywh using gn (normalization factor, assuming gn is defined)
-                    xywh = (torch.tensor(xywh).view(1, 4) / gn).view(-1).tolist()  # normalized xywh
-                    
-                    # Convert theta (in radians) to degrees and adjust to the range [0, 180]
-                    angle = (theta * 180 / math.pi) + 90
-                    
+                for *xywh, angle, conf, cls in predn.tolist():
                     line = (cls, *xywh, angle, conf) if save_conf else (cls, *xywh, angle)  # label format
                     with open(save_dir / 'labels' / (path.stem + '.txt'), 'a') as f:
                         f.write(('%g ' * len(line)).rstrip() % line + '\n')
