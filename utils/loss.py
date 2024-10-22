@@ -474,7 +474,7 @@ class ComputeLoss:
                 pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]
                 pbox = torch.cat((pxy, pwh), 1)  # predicted box
 
-                _, ptheta = torch.max(ps[:, 4:184], 1,  keepdim=True) # [n_conf_thres, 1] θ ∈ int[0, 179]
+                _, ptheta = torch.max(ps[:, 4:184], 1, keepdim=True) # [n_conf_thres, 1] θ ∈ int[0, 179]
                 ptheta = (ptheta - 90) / 180 * math.pi # [n_conf_thres, 1] θ ∈ [-pi/2, pi/2]
 
                 # iou = bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)  # iou(prediction, target)
@@ -492,7 +492,7 @@ class ComputeLoss:
                     lcls += self.BCEcls(ps[:, 185:], t)  # BCE
 
                 # Theta Classification by Circular Smooth Label
-                t_theta = ttheta[i].type(ps.dtype)
+                t_theta = ttheta_labels[i].type(ps.dtype)
                 ltheta += self.BCEtheta(ps[:, 4:184], t_theta)
 
                 # Append targets to text file
