@@ -157,7 +157,7 @@ def test(data,
             predn_hbb = torch.cat((hbboxn, predn_poly[:, -2:]), dim=1) # (n, [xyxy, conf, cls])
             
             rboxn = poly2rbox(predn_poly[:, :8].cpu().numpy())
-            predn = torch.cat((rboxn, predn_poly[:, -2:]), dim=1) # (n, [xywh, angle, conf, cls]
+            predn = torch.cat((rboxn, predn_poly[:, -2:].cpu().numpy()), dim=1) # (n, [xywh, angle, conf, cls]
             
             # Append to text file
             if save_txt:
