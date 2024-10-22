@@ -3,8 +3,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 
-from utils.general import bbox_iou, bbox_alpha_iou, box_iou, box_giou, box_diou, box_ciou, xywh2xyxy
+from utils.general import bbox_iou, bbox_iou_obb, bbox_alpha_iou, box_iou, box_giou, box_diou, box_ciou, xywh2xyxy
 from utils.torch_utils import is_parallel
 
 
@@ -457,7 +458,7 @@ class ComputeLoss:
         ltheta = torch.zeros(1, device=device)
         
         # tcls, ttheta, tbox, indices, anchors = self.build_targets(p, targets)  # targets
-        tcls, tbox, indices, anchors, ttheta = self.build_targets(p, targets)  # targets
+        tcls, tbox, indices, anchors, ttheta, ttheta_labels = self.build_targets(p, targets)  # targets
         
         # Losses
         for i, pi in enumerate(p):  # layer index, layer predictions
@@ -472,7 +473,11 @@ class ComputeLoss:
                 pxy = ps[:, :2].sigmoid() * 2. - 0.5
                 pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]
                 pbox = torch.cat((pxy, pwh), 1)  # predicted box
-                iou = bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)  # iou(prediction, target)
+
+                _, ptheta = torch.max(ps[:, 4:184], 1,  keepdim=True) # [n_conf_thres, 1] θ ∈ int[0, 179]
+                ptheta = (ptheta - 90) / 180 * math.pi # [n_conf_thres, 1] θ ∈ [-pi/2, pi/2 ]
+                
+                iou = bbox_iou_obb(pbox.T, tbox[i], ptheta, ttheta[i], x1y1x2y2=False, CIoU=True)  # iou(prediction, target)
                 lbox += (1.0 - iou).mean()  # iou loss
 
                 # Objectness
@@ -513,7 +518,7 @@ class ComputeLoss:
         # Build targets for compute_loss(), input targets(image,class,x,y,w,h,theta)
         na, nt = self.na, targets.shape[0]  # number of anchors, targets
         tcls, tbox, indices, anch = [], [], [], []
-        ttheta = []
+        ttheta, ttheta_labels = [], []
         #gain = torch.ones(7, device=targets.device).long()  # normalized to gridspace gain
         feature_wh = torch.ones(2, device=targets.device).long() # feature_wh
         
@@ -561,7 +566,7 @@ class ComputeLoss:
             b, c = t[:, :2].long().T  # image, class
             gxy = t[:, 2:4]  # grid xy
             gwh = t[:, 4:6]  # grid wh
-            # theta = t[:, 6]
+            theta = t[:, 6]
             gaussian_theta_labels = t[:, 7:-1]
             
             gij = (gxy - offsets).long()
@@ -574,9 +579,10 @@ class ComputeLoss:
             tbox.append(torch.cat((gxy - gij, gwh), 1))  # box
             anch.append(anchors[a])  # anchors
             tcls.append(c)  # class
-            ttheta.append(gaussian_theta_labels)
+            ttheta.append(theta)
+            ttheta_labels.append(gaussian_theta_labels)
 
-        return tcls, tbox, indices, anch, ttheta
+        return tcls, tbox, indices, anch, ttheta, ttheta_labels
     
 
 class ComputeLossBinOTA:
