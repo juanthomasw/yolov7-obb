@@ -116,7 +116,7 @@ def detect(save_img=False):
                 # Rescale polys from img_size to im0 size
                 pred_poly = scale_polys(im.shape[2:], pred_poly, im0.shape)
 
-                pred_box = ploy2rbox(pred_poly)
+                pred_box = poly2rbox(pred_poly)
                 det = torch.cat((pred_box, det[:, -2:]), dim=1) # (n, [x y w h angle conf cls])
 
                 # Print results
