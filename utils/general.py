@@ -389,6 +389,9 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False, eps=
 
 
 def bbox_iou_obb(box1, box2, theta1, theta2, GIoU=False, DIoU=False, CIoU=False, eps=1e-7):
+    # Ensure theta2 is shaped [n, 1] before concatenation
+    theta2 = theta2.unsqueeze(1)
+    
     box1 = torch.cat((box1, theta1), dim=-1)  # Shape: [n, 5], box1 is now [x, y, w, h, theta]
     box2 = torch.cat((box2, theta2), dim=-1)  # Shape: [n, 5], box2 is now [x, y, w, h, theta]
 
