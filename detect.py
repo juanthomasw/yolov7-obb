@@ -115,27 +115,33 @@ def detect(save_img=False):
                 
                 # Rescale polys from img_size to im0 size
                 pred_poly = scale_polys(im.shape[2:], pred_poly, im0.shape)
-
-                pred_box = poly2rbox(pred_poly)
-                det = torch.cat((pred_box, det[:, -2:]), dim=1) # (n, [x y w h angle conf cls])
-
+                
                 # Print results
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
                 # Write results
-                for *rboxes, conf, cls in reversed(det):
+                for *poly, conf, cls in reversed(det):
                     if save_txt:  # Write to file
                         # xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        rboxes = rboxes.tolist()
-                        line = (cls, *rboxes, conf) if opt.save_conf else (cls, *rboxes)  # label format
+                        poly_np = poly.cpu().numpy()
+                        poly_np = poly_np.reshape(1, 8)
+
+                        rbox = poly2rbox(poly_np)
+                        # Normalize xywh (first four values) and keep theta unchanged
+                        x, y, w, h, angle = rbox[0]  # Assuming rbox is of shape (1, 5)
+                        rbox_normalized = np.array([x / gn, y / gn, w / gn, h / gn, angle])  # Normalize only x, y, w, h
+
+                        rbox_normalized = rbox_normalized.tolist()
+                        
+                        line = (cls, *rbox_normalized, conf) if opt.save_conf else (cls, *rbox_normalized)  # label format
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
                     if save_img or view_img:  # Add bbox to image
                         label = f'{names[int(cls)]} {conf:.2f}'
-                        plot_one_box_obb(rboxes, im0, label=label, color=colors[int(cls)], line_thickness=1)
+                        plot_one_box_obb(poly, im0, label=label, color=colors[int(cls)], line_thickness=1)
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
