@@ -475,9 +475,10 @@ class ComputeLoss:
                 pbox = torch.cat((pxy, pwh), 1)  # predicted box
 
                 _, ptheta = torch.max(ps[:, 4:184], 1,  keepdim=True) # [n_conf_thres, 1] θ ∈ int[0, 179]
-                ptheta = (ptheta - 90) / 180 * math.pi # [n_conf_thres, 1] θ ∈ [-pi/2, pi/2 ]
-                
-                iou = bbox_iou_obb(pbox.T, tbox[i], ptheta, ttheta[i], CIoU=True)  # iou(prediction, target)
+                ptheta = (ptheta - 90) / 180 * math.pi # [n_conf_thres, 1] θ ∈ [-pi/2, pi/2]
+
+                # iou = bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)  # iou(prediction, target)
+                iou = bbox_iou_obb(pbox, tbox[i], ptheta, ttheta[i], CIoU=True)  # iou(prediction, target)
                 lbox += (1.0 - iou).mean()  # iou loss
 
                 # Objectness
