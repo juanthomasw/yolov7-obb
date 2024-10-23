@@ -73,16 +73,18 @@ def plot_one_box_obb(poly, img, color=None, label=None, line_thickness=3):
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]  # Random color if not provided
 
-    # Convert polygon points to a format suitable for cv2.polylines
-    points = np.array(poly).reshape((-1, 1, 2)).astype(int)  # Convert to NumPy array and reshape
+    # Ensure poly is a numpy array and has the correct shape
+    poly = np.array(poly).reshape(-1, 2)  # Ensure it's a 2D array of shape (n_points, 2)
+
+    points = poly.astype(int).reshape((-1, 1, 2))  # Reshape to (n, 1, 2) for polylines
 
     # Draw the polygon
     cv2.polylines(img, [points], isClosed=True, color=color, thickness=tl)
 
     # If a label is provided, draw it above the bounding box
     if label:
-        # Calculate the position for the label
-        c1 = (int(poly[0][0]), int(poly[0][1]))  # Use the first vertex for the label position
+        # Use the first vertex for the label position
+        c1 = (int(poly[0, 0]), int(poly[0, 1]))  
         tf = max(tl - 1, 1)  # font thickness
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
         label_position = (c1[0], c1[1] - 2)
