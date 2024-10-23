@@ -142,7 +142,13 @@ def detect(save_img=False):
 
                   if save_img or view_img:  # Add bbox to image
                       label = f'{names[int(cls)]} {conf:.2f}'
-                      plot_one_box_obb(poly.cpu.numpy(), im0, label=label, color=colors[int(cls)], line_thickness=1)
+                      
+                      # Handle poly to ensure it's in the correct format for plotting
+                      if isinstance(poly, list):
+                          poly = torch.tensor(poly, dtype=torch.float32)  # Ensure it's a tensor for conversion
+                      poly_np = poly.cpu().numpy() if poly.is_cuda else poly.numpy()  # Use .cpu() for CUDA tensors
+                      
+                      plot_one_box_obb(poly_np.reshape(-1, 2), im0, label=label, color=colors[int(cls)], line_thickness=1)
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
