@@ -132,10 +132,6 @@ def detect(save_img=False):
                           rbox = poly2rbox(torch.tensor(poly).view(1,8))
 
                       rbox[:, :4] = rbox[:, :4] / gn
-                      rbox[:, 4] = (rbox[:, 4] / math.pi * 180) + 90
-
-                      rbox[:, 4] = rbox[:, 4] % 180
-
                       rbox_flat = rbox.flatten().tolist()  # Flatten rbox and convert to list
 
                       line = (cls, *rbox_flat, conf) if opt.save_conf else (cls, *rbox_flat)  # label format
