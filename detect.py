@@ -5,6 +5,7 @@ from pathlib import Path
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
+import math
 import numpy as np
 from numpy import random
 
@@ -128,19 +129,25 @@ def detect(save_img=False):
                   if save_txt:  # Write to file
                       # Ensure the correct data type
                       if isinstance(poly, list):
-                          poly = torch.tensor(poly, dtype=torch.float32)
+                          poly = torch.tensor(poly, dtype=torch.float32)  # Convert list to tensor if necessary
 
-                      # Convert poly to a list of float values
-                      poly_list = poly.tolist()  # Convert to a list if needed
+                      # Convert poly to a NumPy array before passing to poly2rbox
+                      poly_np = np.array(poly)  # Convert to a NumPy array
 
-                      rbox = poly2rbox(poly_list)  # Adjust this function if necessary to accept a list
-                      
+                      # Ensure poly_np has the correct shape (1, 8)
+                      if poly_np.ndim == 1:  # If it's a flat array, reshape it
+                          poly_np = poly_np.reshape(1, 8)
+
+                      rbox = poly2rbox(poly_np)  # Call the function with the NumPy array
+
                       # Normalize xywh (first four values) and convert theta to angle
                       x, y, w, h, theta = rbox[0]  # Assuming rbox is of shape (1, 5)
                       angle = (theta / math.pi * 180) - 90  # Convert theta to angle manually
 
                       # Normalize x, y, w, h
                       rbox_normalized = [x / gn, y / gn, w / gn, h / gn, angle]
+
+                      rbox_normalized = rbox_normalized.tolist()
 
                       line = (cls, *rbox_normalized, conf) if opt.save_conf else (cls, *rbox_normalized)  # label format
                       with open(txt_path + '.txt', 'a') as f:
