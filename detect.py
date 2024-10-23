@@ -115,6 +115,7 @@ def detect(save_img=False):
                 
                 # Rescale polys from img_size to im0 size
                 pred_poly = scale_polys(im.shape[2:], pred_poly, im0.shape)
+                det = torch.cat((pred_poly, det[:, -2:]), dim=1) # (n, [poly conf cls])
                 
                 # Print results
                 for c in det[:, -1].unique():
@@ -125,6 +126,9 @@ def detect(save_img=False):
                 for *poly, conf, cls in reversed(det):
                     if save_txt:  # Write to file
                         # xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+                        if isinstance(poly, list):
+                            poly = torch.tensor(poly, dtype=torch.float32)  # Ensure the correct data type
+                        
                         poly_np = poly.cpu().numpy()
                         poly_np = poly_np.reshape(1, 8)
 
