@@ -11,7 +11,6 @@ from itertools import repeat
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from threading import Thread
-from math import pi
 
 import cv2
 import numpy as np
