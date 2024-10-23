@@ -20,6 +20,7 @@ from scipy.signal import butter, filtfilt
 
 from utils.general import xywh2xyxy, xyxy2xywh
 from utils.metrics import fitness
+from utils.rbox_utils import poly2rbox, rbox2poly
 
 # Settings
 matplotlib.rc('font', **{'size': 11})
@@ -175,26 +176,43 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
         mosaic[block_y:block_y + h, block_x:block_x + w, :] = img
         if len(targets) > 0:
             image_targets = targets[targets[:, 0] == i]
-            boxes = xywh2xyxy(image_targets[:, 2:6]).T
+            # boxes = xywh2xyxy(image_targets[:, 2:6]).T
+            rboxes = image_targets[:, 2:7]
             classes = image_targets[:, 1].astype('int')
-            labels = image_targets.shape[1] == 6  # labels if no conf column
-            conf = None if labels else image_targets[:, 6]  # check for confidence presence (label vs pred)
-
-            if boxes.shape[1]:
-                if boxes.max() <= 1.01:  # if normalized with tolerance 0.01
-                    boxes[[0, 2]] *= w  # scale to pixels
-                    boxes[[1, 3]] *= h
-                elif scale_factor < 1:  # absolute coords need scale if image scales
-                    boxes *= scale_factor
-            boxes[[0, 2]] += block_x
-            boxes[[1, 3]] += block_y
-            for j, box in enumerate(boxes.T):
+            # labels = image_targets.shape[1] == 6  # labels if no conf column
+            labels = image_targets.shape[1] == 187  # labels if no conf column
+            # conf = None if labels else image_targets[:, 6]  # check for confidence presence (label vs pred)
+            conf = None if labels else image_targets[:, 7]  # check for confidence presence (label vs pred)
+            
+            # if boxes.shape[1]:
+                # if boxes.max() <= 1.01:  # if normalized with tolerance 0.01
+                    # boxes[[0, 2]] *= w  # scale to pixels
+                    # boxes[[1, 3]] *= h
+                # elif scale_factor < 1:  # absolute coords need scale if image scales
+                    # boxes *= scale_factor
+            polys = rbox2poly(rboxes)
+            if scale < 1:
+                polys *= scale_factor
+            # boxes[[0, 2]] += block_x
+            # boxes[[1, 3]] += block_y
+            polys[:, [0, 2, 4, 6]] += block_x
+            polys[:, [1, 3, 5, 7]] += block_y
+            
+            # for j, box in enumerate(boxes.T):
+                # cls = int(classes[j])
+                # color = colors[cls % len(colors)]
+                # cls = names[cls] if names else cls
+                # if labels or conf[j] > 0.25:  # 0.25 conf thresh
+                    # label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
+                    # plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl)
+            
+            for j, poly in enumerate(polys.tolist()):
                 cls = int(classes[j])
                 color = colors[cls % len(colors)]
                 cls = names[cls] if names else cls
                 if labels or conf[j] > 0.25:  # 0.25 conf thresh
                     label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
-                    plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl)
+                    plot_one_box_obb(poly, mosaic, label=label, color=color, line_thickness=tl)
 
         # Draw image filename labels
         if paths:
@@ -294,6 +312,9 @@ def plot_study_txt(path='', x=None):  # from utils.plots import *; plot_study_tx
 
 
 def plot_labels(labels, names=(), save_dir=Path(''), loggers=None):
+    rboxes = poly2rbox(labels[:, 1:])
+    labels = np.concatenate((labels[:, :1], rboxes[:, :-1]), axis=1) # [cls xyls]
+    
     # plot dataset labels
     print('Plotting labels... ')
     c, b = labels[:, 0], labels[:, 1:].transpose()  # classes, boxes
