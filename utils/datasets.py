@@ -569,11 +569,12 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
             if x.size:
                 labels = x.copy()
-                labels[:, 1] = w * x[:, 1]
-                labels[:, 2] = h * x[:, 2]
-                labels[:, 3] = w * x[:, 3]
-                labels[:, 4] = h * x[:, 4]
-                labels[:, 5] = (x[:, 5] - 90) * math.pi/180 #theta
+                labels[:, 1] = (ratio[0] * w) * x[:, 1] + pad[0]
+                labels[:, 2] = (ratio[1] * h) * x[:, 2] + pad[1]
+                labels[:, 3] = (ratio[0] * w) * x[:, 3]
+                labels[:, 4] = (ratio[1] * h) * x[:, 4]
+                labels[:, 5] = (x[:, 5] - 90) * math.pi/180
+                # xywh unnormalized, theta
                 
                 # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
                 
@@ -585,6 +586,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             
                 # Concatenate the class label with the polygon coordinates
                 labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
+                # [class xy xy xy xy]
         
         if self.augment:
             # Augment imagespace
