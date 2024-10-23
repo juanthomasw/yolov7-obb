@@ -568,26 +568,29 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             x = self.labels[index].copy()
 
             if x.size:
+                # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
+                
                 labels = x.copy()
-                labels[:, 1] = (ratio[0] * w) * x[:, 1] + pad[0]
-                labels[:, 2] = (ratio[1] * h) * x[:, 2] + pad[1]
-                labels[:, 3] = (ratio[0] * w) * x[:, 3]
-                labels[:, 4] = (ratio[1] * h) * x[:, 4]
+                labels[:, 1] = w * x[:, 1]
+                labels[:, 2] = h * x[:, 2]
+                labels[:, 3] = w * x[:, 3]
+                labels[:, 4] = h * x[:, 4]
                 labels[:, 5] = (x[:, 5] - 90) * math.pi/180
                 # xywh unnormalized, theta
-                
-                # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
                 
                 # Separate the class and the rest of the values
                 obboxes = labels[:, 1:]   # x, y, w, h, theta
             
                 # Convert the rboxes to polygons (x1, y1, x2, y2, x3, y3, x4, y4)
                 polys = rbox2poly(obboxes)
-            
+
                 # Concatenate the class label with the polygon coordinates
                 labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
                 # [class xy xy xy xy]
-        
+                
+                labels[:, [1, 3, 5, 7]] = img_label[:, [1, 3, 5, 7]] * ratio[0] + pad[0]
+                labels[:, [2, 4, 6, 8]] = img_label[:, [2, 4, 6, 8]] * ratio[1] + pad[1]
+                
         if self.augment:
             # Augment imagespace
             if not mosaic:
