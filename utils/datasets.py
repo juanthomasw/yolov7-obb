@@ -794,8 +794,8 @@ def load_mosaic(self, index):
             
             # Concatenate the class label with the polygon coordinates
             # labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
-            labels[:, [1, 3, 5, 7]] = img_label[:, [1, 3, 5, 7]] + padw
-            labels[:, [2, 4, 6, 8]] = img_label[:, [2, 4, 6, 8]] + padh
+            labels[:, [1, 3, 5, 7]] = labels[:, [1, 3, 5, 7]] + padw
+            labels[:, [2, 4, 6, 8]] = labels[:, [2, 4, 6, 8]] + padh
             
             segments = [xyn2xy(x, w, h, padw, padh) for x in segments]
         labels4.append(labels)
@@ -881,8 +881,8 @@ def load_mosaic9(self, index):
             # Concatenate the class label with the polygon coordinates
             # labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
             
-            labels[:, [1, 3, 5, 7]] = img_label[:, [1, 3, 5, 7]] + padw
-            labels[:, [2, 4, 6, 8]] = img_label[:, [2, 4, 6, 8]] + padh
+            labels[:, [1, 3, 5, 7]] = labels[:, [1, 3, 5, 7]] + padw
+            labels[:, [2, 4, 6, 8]] = labels[:, [2, 4, 6, 8]] + padh
             
             segments = [xyn2xy(x, w, h, padx, pady) for x in segments]
         labels9.append(labels)
