@@ -191,7 +191,7 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
                 # elif scale_factor < 1:  # absolute coords need scale if image scales
                     # boxes *= scale_factor
             polys = rbox2poly(rboxes)
-            if scale < 1:
+            if scale_factor < 1:
                 polys *= scale_factor
             # boxes[[0, 2]] += block_x
             # boxes[[1, 3]] += block_y
