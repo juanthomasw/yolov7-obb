@@ -147,8 +147,6 @@ def detect(save_img=False):
                       # Normalize x, y, w, h
                       rbox_normalized = [x / gn, y / gn, w / gn, h / gn, angle]
 
-                      rbox_normalized = rbox_normalized.tolist()
-
                       line = (cls, *rbox_normalized, conf) if opt.save_conf else (cls, *rbox_normalized)  # label format
                       with open(txt_path + '.txt', 'a') as f:
                           f.write(('%g ' * len(line)).rstrip() % line + '\n')
