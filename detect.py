@@ -114,7 +114,7 @@ def detect(save_img=False):
                 # det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
                 
                 # Rescale polys from img_size to im0 size
-                pred_poly = scale_polys(im.shape[2:], pred_poly, im0.shape)
+                pred_poly = scale_polys(img.shape[2:], pred_poly, im0.shape)
                 det = torch.cat((pred_poly, det[:, -2:]), dim=1) # (n, [poly conf cls])
                 
                 # Print results
