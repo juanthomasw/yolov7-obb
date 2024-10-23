@@ -129,31 +129,20 @@ def detect(save_img=False):
                   if save_txt:  # Write to file
                       # Ensure the correct data type
                       if isinstance(poly, list):
-                          poly = torch.tensor(poly, dtype=torch.float32)  # Convert list to tensor if necessary
+                          rbox = poly2rbox(torch.tensor(poly).view(1,8))
 
-                      # Convert poly to a NumPy array before passing to poly2rbox
-                      poly_np = np.array(poly)  # Convert to a NumPy array
+                      rbox[:,:4] = rbox[:,:4] / gn
+                      rbox[:,4] = (rbox[:,4] / math.pi * 180) - 90
 
-                      # Ensure poly_np has the correct shape (1, 8)
-                      if poly_np.ndim == 1:  # If it's a flat array, reshape it
-                          poly_np = poly_np.reshape(1, 8)
+                      rbox_flat = rbox.flatten().tolist()  # Flatten rbox and convert to list
 
-                      rbox = poly2rbox(poly_np)  # Call the function with the NumPy array
-
-                      # Normalize xywh (first four values) and convert theta to angle
-                      x, y, w, h, theta = rbox[0]  # Assuming rbox is of shape (1, 5)
-                      angle = (theta / math.pi * 180) - 90  # Convert theta to angle manually
-
-                      # Normalize x, y, w, h
-                      rbox_normalized = [x / gn, y / gn, w / gn, h / gn, angle]
-
-                      line = (cls, *rbox_normalized, conf) if opt.save_conf else (cls, *rbox_normalized)  # label format
+                      line = (cls, *rbox_flat, conf) if opt.save_conf else (cls, *rbox_flat)  # label format
                       with open(txt_path + '.txt', 'a') as f:
                           f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
                   if save_img or view_img:  # Add bbox to image
                       label = f'{names[int(cls)]} {conf:.2f}'
-                      plot_one_box_obb(poly, im0, label=label, color=colors[int(cls)], line_thickness=1)
+                      plot_one_box_obb(poly.cpu.numpy(), im0, label=label, color=colors[int(cls)], line_thickness=1)
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
