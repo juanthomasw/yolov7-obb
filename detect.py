@@ -125,28 +125,42 @@ def detect(save_img=False):
 
                 # Write results
                 for *poly, conf, cls in reversed(det):
-                    if save_txt:  # Write to file
-                        # xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        if isinstance(poly, list):
-                            poly = torch.tensor(poly, dtype=torch.float32)  # Ensure the correct data type
-                        
-                        poly_np = poly.cpu().numpy()
-                        poly_np = poly_np.reshape(1, 8)
+    if save_txt:  # Write to file
+        # Ensure poly is in the right format
+        if isinstance(poly, list):
+            poly = torch.tensor(poly, dtype=torch.float32)  # Convert to tensor if it's a list
 
-                        rbox = poly2rbox(poly_np)
-                        # Normalize xywh (first four values) and keep theta unchanged
-                        x, y, w, h, angle = rbox[0]  # Assuming rbox is of shape (1, 5)
-                        rbox_normalized = np.array([x / gn, y / gn, w / gn, h / gn, angle])  # Normalize only x, y, w, h
+            poly_np = poly.cpu().numpy()  # Convert to NumPy array for further processing
+            poly_np = poly_np.reshape(1, -1)  # Reshape to ensure it’s in the right shape
+    
+            # Convert polygon points to a rotated bounding box
+            rbox = poly2rbox(poly_np)  # Assuming poly2rbox returns x, y, w, h, theta format
+    
+            # Extract values from rbox
+            x, y, w, h, theta = rbox[0]  # Assuming rbox is of shape (1, 5)
+    
+            # Normalize coordinates (assuming gn is defined for normalization)
+            rbox_normalized = np.array([
+                x / gn,  # Normalize x
+                y / gn,  # Normalize y
+                w / gn,  # Normalize width
+                h / gn,  # Normalize height
+                (theta * 180 / np.pi + 90)  # Convert theta to angle
+            ], dtype=float)  # Ensure it's float
+    
+            rbox_normalized = rbox_normalized.tolist()  # Convert to list for writing
+    
+            # Create line for writing
+            line = (cls, *rbox_normalized, conf) if opt.save_conf else (cls, *rbox_normalized)  # label format
+            
+            # Write to file
+            with open(txt_path + '.txt', 'a') as f:
+                f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
-                        rbox_normalized = rbox_normalized.tolist()
-                        
-                        line = (cls, *rbox_normalized, conf) if opt.save_conf else (cls, *rbox_normalized)  # label format
-                        with open(txt_path + '.txt', 'a') as f:
-                            f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
-                    if save_img or view_img:  # Add bbox to image
-                        label = f'{names[int(cls)]} {conf:.2f}'
-                        plot_one_box_obb(poly, im0, label=label, color=colors[int(cls)], line_thickness=1)
+        if save_img or view_img:  # Add bbox to image
+            label = f'{names[int(cls)]} {conf:.2f}'
+            plot_one_box_obb(poly, im0, label=label, color=colors[int(cls)], line_thickness=1)
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
