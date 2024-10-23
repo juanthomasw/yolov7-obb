@@ -410,6 +410,23 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.shapes = np.array(shapes, dtype=np.float64)
         self.img_files = list(cache.keys())  # update
         self.label_files = img2label_paths(cache.keys())  # update
+
+        # Perform the conversion of labels
+        for i, x in enumerate(self.labels):
+            if x.size:
+                # Convert normalized (x, y, w, h, angle) to unnormalized (x, y, w, h, theta)
+                x[:, 1] = self.shapes[i][1] * x[:, 1]  # width scale
+                x[:, 2] = self.shapes[i][0] * x[:, 2]  # height scale
+                x[:, 3] = self.shapes[i][1] * x[:, 3]  # width scale
+                x[:, 4] = self.shapes[i][0] * x[:, 4]  # height scale
+                x[:, 5] = (x[:, 5] - 90) * math.pi / 180  # convert angle to theta
+                
+                # Convert the rboxes to polygons (x1, y1, x2, y2, x3, y3, x4, y4)
+                polys = rbox2poly(x[:, 1:])
+            
+                # Concatenate the class label with the polygon coordinates
+                self.labels[i] = np.concatenate((x[:, :1], polys), axis=1)  # Concatenate along columns
+                     
         if single_cls:
             for x in self.labels:
                 x[:, 0] = 0
@@ -564,28 +581,27 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
             shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
 
-            labels = []
-            x = self.labels[index].copy()
+            labels = self.labels[index].copy()
 
-            if x.size:
+            if labels.size:
                 # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
                 
-                labels = x.copy()
-                labels[:, 1] = w * x[:, 1]
-                labels[:, 2] = h * x[:, 2]
-                labels[:, 3] = w * x[:, 3]
-                labels[:, 4] = h * x[:, 4]
-                labels[:, 5] = (x[:, 5] - 90) * math.pi/180
+                # labels = x.copy()
+                # labels[:, 1] = w * x[:, 1]
+                # labels[:, 2] = h * x[:, 2]
+                # labels[:, 3] = w * x[:, 3]
+                # labels[:, 4] = h * x[:, 4]
+                # labels[:, 5] = (x[:, 5] - 90) * math.pi/180
                 # xywh unnormalized, theta
                 
                 # Separate the class and the rest of the values
-                obboxes = labels[:, 1:]   # x, y, w, h, theta
+                # obboxes = labels[:, 1:]   # x, y, w, h, theta
             
                 # Convert the rboxes to polygons (x1, y1, x2, y2, x3, y3, x4, y4)
-                polys = rbox2poly(obboxes)
+                # polys = rbox2poly(obboxes)
 
                 # Concatenate the class label with the polygon coordinates
-                labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
+                # labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
                 # [class xy xy xy xy]
                 
                 labels[:, [1, 3, 5, 7]] = img_label[:, [1, 3, 5, 7]] * ratio[0] + pad[0]
@@ -763,21 +779,23 @@ def load_mosaic(self, index):
         labels, segments = self.labels[index].copy(), self.segments[index].copy()
         if labels.size:
             # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padw, padh)  # normalized xywh to pixel xyxy format
-            labels[:, 1] = w * labels[:, 1]
-            labels[:, 2] = h * labels[:, 2]
-            labels[:, 3] = w * labels[:, 3]
-            labels[:, 4] = h * labels[:, 4]
-            labels[:, 5] = (labels[:, 5] - 90) * math.pi/180
+            # labels[:, 1] = w * labels[:, 1]
+            # labels[:, 2] = h * labels[:, 2]
+            # labels[:, 3] = w * labels[:, 3]
+            # labels[:, 4] = h * labels[:, 4]
+            # labels[:, 5] = (labels[:, 5] - 90) * math.pi/180
             # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
             
             # Separate the class and the rest of the values
-            obboxes = labels[:, 1:]   # x, y, w, h, theta
+            # obboxes = labels[:, 1:]   # x, y, w, h, theta
             
             # Convert the rboxes to polygons (x1, y1, x2, y2, x3, y3, x4, y4)
-            polys = rbox2poly(obboxes)
+            # polys = rbox2poly(obboxes)
             
             # Concatenate the class label with the polygon coordinates
-            labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
+            # labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
+            labels[:, [1, 3, 5, 7]] = img_label[:, [1, 3, 5, 7]] + padw
+            labels[:, [2, 4, 6, 8]] = img_label[:, [2, 4, 6, 8]] + padh
             
             segments = [xyn2xy(x, w, h, padw, padh) for x in segments]
         labels4.append(labels)
@@ -848,20 +866,24 @@ def load_mosaic9(self, index):
         labels, segments = self.labels[index].copy(), self.segments[index].copy()
         if labels.size:
             # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padw, padh)  # normalized xywh to pixel xyxy format
-            labels[:, 1] = w * labels[:, 1]
-            labels[:, 2] = h * labels[:, 2]
-            labels[:, 3] = w * labels[:, 3]
-            labels[:, 4] = h * labels[:, 4]
-            labels[:, 5] = (labels[:, 5] - 90) * math.pi/180
+            # labels[:, 1] = w * labels[:, 1]
+            # labels[:, 2] = h * labels[:, 2]
+            # labels[:, 3] = w * labels[:, 3]
+            # labels[:, 4] = h * labels[:, 4]
+            # labels[:, 5] = (labels[:, 5] - 90) * math.pi/180
             
             # Separate the class and the rest of the values
-            obboxes = labels[:, 1:]   # x, y, w, h, theta
+            # obboxes = labels[:, 1:]   # x, y, w, h, theta
             
             # Convert the rboxes to polygons (x1, y1, x2, y2, x3, y3, x4, y4)
-            polys = rbox2poly(obboxes)
+            # polys = rbox2poly(obboxes)
             
             # Concatenate the class label with the polygon coordinates
-            labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
+            # labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
+            
+            labels[:, [1, 3, 5, 7]] = img_label[:, [1, 3, 5, 7]] + padw
+            labels[:, [2, 4, 6, 8]] = img_label[:, [2, 4, 6, 8]] + padh
+            
             segments = [xyn2xy(x, w, h, padx, pady) for x in segments]
         labels9.append(labels)
         segments9.extend(segments)
