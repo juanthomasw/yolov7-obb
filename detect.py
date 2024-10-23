@@ -126,37 +126,25 @@ def detect(save_img=False):
                 # Write results
                 for *poly, conf, cls in reversed(det):
                   if save_txt:  # Write to file
-                      # Ensure poly is in the right format
+                      # Ensure the correct data type
                       if isinstance(poly, list):
-                          poly = torch.tensor(poly, dtype=torch.float32)  # Convert to tensor if it's a list
+                          poly = torch.tensor(poly, dtype=torch.float32)
 
-                          poly_np = poly.cpu().numpy()  # Convert to NumPy array for further processing
-                          poly_np = poly_np.reshape(1, -1)  # Reshape to ensure it’s in the right shape
-                  
-                          # Convert polygon points to a rotated bounding box
-                          rbox = poly2rbox(poly_np)  # Assuming poly2rbox returns x, y, w, h, theta format
-                  
-                          # Extract values from rbox
-                          x, y, w, h, theta = rbox[0]  # Assuming rbox is of shape (1, 5)
-                  
-                          # Normalize coordinates (assuming gn is defined for normalization)
-                          rbox_normalized = np.array([
-                              x / gn,  # Normalize x
-                              y / gn,  # Normalize y
-                              w / gn,  # Normalize width
-                              h / gn,  # Normalize height
-                              (theta * 180 / np.pi + 90)  # Convert theta to angle
-                          ], dtype=float)  # Ensure it's float
-                  
-                          rbox_normalized = rbox_normalized.tolist()  # Convert to list for writing
-                  
-                          # Create line for writing
-                          line = (cls, *rbox_normalized, conf) if opt.save_conf else (cls, *rbox_normalized)  # label format
-                          
-                          # Write to file
-                          with open(txt_path + '.txt', 'a') as f:
-                              f.write(('%g ' * len(line)).rstrip() % line + '\n')
+                      # Convert poly to a list of float values
+                      poly_list = poly.tolist()  # Convert to a list if needed
 
+                      rbox = poly2rbox(poly_list)  # Adjust this function if necessary to accept a list
+                      
+                      # Normalize xywh (first four values) and convert theta to angle
+                      x, y, w, h, theta = rbox[0]  # Assuming rbox is of shape (1, 5)
+                      angle = (theta / math.pi * 180) - 90  # Convert theta to angle manually
+
+                      # Normalize x, y, w, h
+                      rbox_normalized = [x / gn, y / gn, w / gn, h / gn, angle]
+
+                      line = (cls, *rbox_normalized, conf) if opt.save_conf else (cls, *rbox_normalized)  # label format
+                      with open(txt_path + '.txt', 'a') as f:
+                          f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
                   if save_img or view_img:  # Add bbox to image
                       label = f'{names[int(cls)]} {conf:.2f}'
