@@ -604,8 +604,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 # labels = np.concatenate((labels[:, :1], polys), axis=1)  # Concatenate along columns
                 # [class xy xy xy xy]
                 
-                labels[:, [1, 3, 5, 7]] = img_label[:, [1, 3, 5, 7]] * ratio[0] + pad[0]
-                labels[:, [2, 4, 6, 8]] = img_label[:, [2, 4, 6, 8]] * ratio[1] + pad[1]
+                labels[:, [1, 3, 5, 7]] = labels[:, [1, 3, 5, 7]] * ratio[0] + pad[0]
+                labels[:, [2, 4, 6, 8]] = labels[:, [2, 4, 6, 8]] * ratio[1] + pad[1]
                 
         if self.augment:
             # Augment imagespace
