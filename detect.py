@@ -143,6 +143,11 @@ def detect(save_img=False):
                       
                       # Handle poly to ensure it's in the correct format for plotting
                       if isinstance(poly, list):
+                          rbox = poly2rbox(torch.tensor(poly).view(1,8))
+                          
+                          rbox[:, 4] = rbox[:, 4] * (-1)
+                          poly = rbox2poly(rbox)
+                          
                           poly = torch.tensor(poly, dtype=torch.float32)  # Ensure it's a tensor for conversion
                       poly_np = poly.cpu().numpy() if poly.is_cuda else poly.numpy()  # Use .cpu() for CUDA tensors
                       
