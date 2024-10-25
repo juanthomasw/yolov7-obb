@@ -143,7 +143,7 @@ def detect(save_img=False):
                       
                       # Handle poly to ensure it's in the correct format for plotting
                       if isinstance(poly, list):
-                          rbox = poly2rbox(torch.tensor(poly).view(1,8))
+                          rbox = poly2rbox(torch.tensor(poly).view(1,8), use_pi=True)
                           
                           rbox[:, 4] = rbox[:, 4] * (-1)
                           poly = rbox2poly(rbox)
